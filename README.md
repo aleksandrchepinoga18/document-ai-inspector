@@ -4,10 +4,11 @@
 [TECHNICAL_SPEC.md](TECHNICAL_SPEC.md), скопированная без изменений из
 `TECHNICAL_SPEC_REVISED.md`.
 
-Реализован **только этап 1**: каркас пакетов, FastAPI `/health`, заглушка
-Streamlit, настройки окружения, Docker Compose, локальный MLflow и smoke-тесты.
-Обработка DOCX, исправления, PDF, LLM и бенчмарк пока не реализованы.
-Заглушка интерфейса не выдаёт результатов проверки документов.
+Реализованы **этапы 1–2**: инфраструктура, безопасное чтение DOCX,
+формальные правила по JSON-профилю, API проверки и постоянные отчёты.
+Этап 1 принят пользователем: Compose работает, все 9 исходных тестов прошли.
+Редактор, PDF, LLM, бенчмарк и UI-клиент не реализованы.
+Streamlit остаётся заглушкой этапа 1.
 
 ## Требования
 
@@ -16,7 +17,7 @@ Streamlit, настройки окружения, Docker Compose, локальн
 - Доступ к Docker Hub, Debian repositories и PyPI для первой сборки.
 - Свободные локальные порты 8000, 8501, 5000.
 
-Python на Windows и Ollama для этапа 1 не нужны: контейнеры используют
+Python на Windows и Ollama для этапов 1–2 не нужны: контейнеры используют
 Python 3.12.12. Первый образ достаточно большой: в него входят LibreOffice,
 Streamlit, MLflow, исходники и тестовые зависимости.
 
@@ -51,7 +52,8 @@ docker compose exec api python -m pytest --cov=backend --cov-report=term-missing
   `Up (healthy)`. Инициализация MLflow при первом запуске может занять больше
   времени; повторите `docker compose ps`.
 - `/health` возвращает HTTP 200 и `{"status":"ok"}`.
-- pytest завершается с `9 passed`; external-тесты по умолчанию исключены.
+- pytest завершается без ошибок, включая исходные 9 тестов и новые проверки
+  этапа 2; external-тесты по умолчанию исключены.
 - Проверка покрытия выводит таблицу; обязательный процент пока не задан.
 
 Откройте в браузере:
@@ -95,11 +97,24 @@ docker compose down
 | `PROCESSING_TIMEOUT_SECONDS` | `120` | Резерв для обработки документов, 1–600 секунд |
 | `OLLAMA_BASE_URL` | `http://host.docker.internal:11434/v1` | Адрес Ollama на Windows-хосте из контейнера |
 | `OLLAMA_MODEL` | пусто | Модель выбирается позднее |
+| `MAX_UPLOAD_BYTES` | `20971520` | Не более 20 MiB на один DOCX |
+| `MAX_ZIP_ENTRIES` | `1000` | Лимит элементов ZIP |
+| `MAX_UNCOMPRESSED_BYTES` | `104857600` | Не более 100 MiB после распаковки |
+| `MAX_ZIP_RATIO` | `200` | Максимальное отношение размера к сжатому размеру каждой части |
 
-Этап 1 не выполняет запросы к Ollama или платным API.
+Этапы 1–2 не выполняют запросы к Ollama или платным API.
 Внутри сети Compose адрес API — `http://api:8000`, MLflow —
 `http://mlflow:5000`. Эти адреса не предназначены для браузера Windows.
 API запускается независимо от доступности MLflow.
+
+Compose задаёт API `DATA_DIR=/app/results`. В отдельном volume
+`documents_data` сохраняются UUID-каталоги с `original.docx` и `report.json`.
+Исходник записывается эксклюзивно и проверяется по SHA-256; имя загрузки
+не используется как путь. Для отклонённого после сохранения документа
+остаются исходник и `failure.json`, готового отчёта нет. Автоматической
+очистки нет: размер хранилища нужно контролировать вручную.
+Обычный `docker compose down` сохраняет оба volume.
+При локальном запуске Python `DATA_DIR` по умолчанию равен `results`.
 
 Все опубликованные порты привязаны к `127.0.0.1`. MLflow запускается от
 непривилегированного пользователя `inspector` с UID/GID 10001; каталог
@@ -131,7 +146,146 @@ docker compose exec mlflow python -c "from pathlib import Path; p = Path('/mlflo
 `.dockerignore` разрешает только необходимые файлы сборки, а Dockerfile
 копирует исходники явным списком. `.env`, DOCX, PDF, локальные окружения и
 результаты не включаются в образ. Данные и конфиденциальные документы на
-этом этапе не загружаются.
+в образ не включаются. Генератор создаёт только синтетические DOCX.
+
+## Этап 2: DOCX и формальные правила
+
+`backend/documents/security.py` проверяет расширение/MIME, структуру ZIP,
+обязательные OOXML-части, размер, количество частей, степень сжатия, CRC,
+XML и связи. ZIP не извлекается на диск; DTD, XML-сущности, макросы,
+выход за пределы пакета и внешние связи отклоняются. Помимо DOCX MIME
+допускается `application/octet-stream`, но содержимое проверяется одинаково.
+Весь multipart-запрос ограничен размером DOCX плюс 64 KiB на обрамление;
+проверка работает и без Content-Length.
+
+Разбор и правила выполняются в отдельном процессе с жёстким timeout
+`PROCESSING_TIMEOUT_SECONDS`. Слишком большой документ по числу абзацев,
+таблиц и runs также отклоняется: максимум 20 000 элементов.
+
+`backend/documents/parser.py` читает основной текст, заголовки, обычные
+таблицы и runs через python-docx/lxml. ID — `word/document.xml:` и XPath;
+mapping ID → исходный OOXML-узел доступен в `ParsedDocument.node_map`.
+В отчёте сохраняются ID, свойства и SHA-256 версии файла. ID воспроизводимы
+для одних и тех же байтов документа, но не гарантируются между редакциями.
+
+Профиль `backend/documents/profiles/default.json`, версия `1.0.0`, задаёт
+семейство/размер шрифта, первую строку, выравнивание, стили заголовков,
+обязательные разделы «Введение» и «Заключение», подпись непосредственно
+перед таблицей вида «Таблица 1 — …». Это демонстрационный профиль,
+не заявление о соответствии ГОСТ. Профиль можно менять в репозитории;
+после изменения пересоберите образ и увеличьте его версию. API принимает
+имя профиля, а не произвольный путь или загруженный конфиг.
+
+Прямое форматирование, символьные/абзацные базовые стили и docDefaults
+разрешаются по иерархии; поддерживается Latin/Cyrillic theme-font fallback.
+Неопределимое свойство получает `status=undetermined`, `severity=info` и
+`actual=null`; оно не объявляется установленной ошибкой оформления.
+В отчёте отдельно перечисляются неподдерживаемые объекты: поля, формулы,
+сноски, исправления, сложные/вложенные таблицы, рисунки, текстовые блоки,
+списки и условное форматирование таблиц. Затронутые контейнеры исключаются
+из обычных форматных правил. Колонтитулы/сноски/комментарии не проверяются.
+Внешние гиперссылки сейчас тоже отклоняются — это намеренное ограничение.
+Полная модель визуального оформления Word не реализована.
+
+Смысловое представление пока использует текст с исходными ID из
+python-docx. Docling и LLM на этом этапе не подключаются.
+Ни один файл не исправляется; все `auto_fix_allowed=false`.
+
+### Создание трёх примеров через Git Bash
+
+После сборки и запуска Compose выполните:
+
+```bash
+docker compose exec -T api python -m samples.generate --output-dir results/stage2-samples
+mkdir -p results/stage2-samples
+MSYS_NO_PATHCONV=1 docker compose cp api:/app/results/stage2-samples/. ./results/stage2-samples
+```
+
+Появятся `valid.docx`, `format_errors.docx`, `structure_errors.docx` и
+`expected.json`. Генератор отказывается перезаписывать существующие файлы.
+Для повторной генерации выберите новый каталог в обеих командах.
+`MSYS_NO_PATHCONV=1` предотвращает преобразование контейнерного пути Git Bash.
+
+### Проверка документа и получение отчёта
+
+```bash
+response=$(curl --fail-with-body --silent --show-error \
+  -F 'file=@results/stage2-samples/format_errors.docx;type=application/vnd.openxmlformats-officedocument.wordprocessingml.document' \
+  -F 'profile=default' -F 'provider=none' -F 'use_llm=false' -F 'auto_fix=false' \
+  http://localhost:8000/documents/check)
+printf '%s\n' "$response"
+JOB_ID=$(printf '%s' "$response" | docker compose exec -T api python -c 'import json,sys; print(json.load(sys.stdin)["job_id"])')
+curl --fail-with-body "http://localhost:8000/documents/$JOB_ID/report"
+```
+
+POST возвращает HTTP **201**, UUID и полный отчёт; GET возвращает HTTP 200
+с тем же отчётом. При ошибке POST не продолжайте извлечение UUID.
+Ожидаемые поля (UUID, SHA-256 и время зависят от запуска):
+
+```json
+{
+  "status": "completed",
+  "profile": "default",
+  "profile_version": "1.0.0",
+  "parser": "python-docx",
+  "use_llm": false,
+  "auto_fix": false,
+  "metrics": {"finding_count": 4, "undetermined_count": 0, "unsupported_count": 0}
+}
+```
+
+В `findings` будут ровно четыре правила: `alignment` (center → justify),
+`first_line_indent_mm` (0 → 12.5), `font_name` (Arial → Times New Roman),
+`font_size_pt` (10 → 14). Каждое содержит `id`, `element_id`, `locations`,
+цитату `evidence`, `actual`, `expected`, `source=rule` и `auto_fix_allowed=false`.
+Например, замечание по шрифту указывает на run внутри второго абзаца:
+
+```json
+{
+  "rule_id": "font_name",
+  "element_id": "word/document.xml:/w:document/w:body/w:p[2]/w:r",
+  "actual": "Arial",
+  "expected": "Times New Roman",
+  "source": "rule",
+  "auto_fix_allowed": false,
+  "status": "open"
+}
+```
+
+Проверка остальных примеров:
+
+```bash
+curl --fail-with-body -F 'file=@results/stage2-samples/valid.docx;type=application/vnd.openxmlformats-officedocument.wordprocessingml.document' \
+  -F 'use_llm=false' http://localhost:8000/documents/check
+curl --fail-with-body -F 'file=@results/stage2-samples/structure_errors.docx;type=application/vnd.openxmlformats-officedocument.wordprocessingml.document' \
+  -F 'use_llm=false' http://localhost:8000/documents/check
+```
+
+Для `valid.docx` ожидается пустой `findings`; для `structure_errors.docx` —
+два замечания: `required_section` для «Заключение» и `table_caption`.
+`status=completed` означает завершение проверки, а не отсутствие замечаний.
+
+Проверка неизменности оригинала для `$JOB_ID` первого запроса:
+
+```bash
+docker compose exec -T -e JOB_ID="$JOB_ID" api python -c 'import hashlib,json,os; from pathlib import Path; d=Path("results")/os.environ["JOB_ID"]; r=json.loads((d/"report.json").read_text(encoding="utf-8")); print("SHA-256 matches:", hashlib.sha256((d/"original.docx").read_bytes()).hexdigest()==r["original_sha256"])'
+```
+
+Ожидается `SHA-256 matches: True`. Проверку можно повторить после
+`docker compose restart api`; GET отчёта с тем же UUID должен работать.
+
+Отрицательный запрос (переданный JSON не является DOCX):
+
+```bash
+curl -i -F 'file=@results/stage2-samples/expected.json;filename=broken.docx;type=application/vnd.openxmlformats-officedocument.wordprocessingml.document' \
+  http://localhost:8000/documents/check
+```
+
+Ожидается HTTP 422 и `detail.code=invalid_docx`. Неизвестный профиль — 422,
+неподдерживаемое расширение/MIME — 415, размер — 413, timeout — 504,
+отсутствующий отчёт — 404. `use_llm=true`, `auto_fix=true` и
+`provider`, отличный от `none`, отклоняются с 422 `unsupported_mode`.
+Маршрутов скачивания и PDF пока нет.
 
 ## Воспроизводимость зависимостей
 
@@ -198,38 +352,34 @@ docker compose logs --tail=100 api
 Передайте использованную команду и её вывод, предварительно убрав секреты.
 Следующий этап начинается только после вашего подтверждения приёмки.
 
-## Восстановление после аварийного выключения — 09.11.2026
+## Статус проверки этапа 2
 
-До восстановления уже существовали все основные компоненты команды №1:
-каркас `backend`, `frontend`, `evaluation`, `samples`, `tests`,
-`infrastructure/docker`; FastAPI с точным контрактом `/health`;
-заглушка Streamlit; `pydantic-settings`; Dockerfile с LibreOffice и тестовыми
-зависимостями; Compose с сервисами `api`, `ui`, `mlflow`, healthcheck и
-постоянным volume; `.env.example`, `.gitignore`, `.dockerignore`,
-закреплённые зависимости, `pytest.ini`, пять smoke-тестов и этот README.
+Этап 1 после восстановления принят пользователем: Docker Compose работает,
+все девять исходных pytest-тестов прошли. Это подтверждение предыдущего
+этапа; новые изменения требуют отдельной проверки.
 
-При анализе файлов не обнаружено отсутствующих обязательных компонентов
-этапа 1. Частично покрыты тестами загрузка настроек и сохранность MLflow;
-подтверждение сборки и запуска контейнеров оставалось незавершённым.
+На этапе 2 локально проверены синтаксис Python, импорты/OpenAPI,
+согласованность Compose/Dockerfile и отсутствие изменений всех 101 прежних
+закреплённых версий. Добавлены и установлены с проверкой SHA-256 три
+зависимости: python-docx 1.2.0, lxml 6.1.3, python-multipart 0.0.33.
+Прямой вызов валидатора, парсера и rules engine на трёх синтетических
+документах дал ожидаемые 0, 4 и 2 замечания без неподдерживаемых объектов.
+Также локально проверен полный checker с отдельным worker-процессом,
+записью/чтением отчёта и побайтовой неизменностью оригинала во временном
+каталоге Windows. `uv pip check` подтвердил совместимость 103 установленных
+пакетов; `git diff --check` не выявил ошибок пробелов.
+Локальный HTTP-обработчик проверен через TestClient: multipart POST → 201,
+четыре реальных замечания и GET → 200; повреждённый DOCX → 422;
+слишком большой streaming multipart без Content-Length → 413.
+Эти проверки не подтверждают работу Linux-контейнеров.
 
-При восстановлении сохранены существующие исходники, Dockerfile, Compose
-и версии зависимостей. Дополнены проверки границ timeout, чтения UTF-8
-`.env`, приоритета окружения, применения имени API и сохранности run/артефакта
-MLflow. Исправлены инструкции проверки и убрано утверждение об успешном
-прохождении старых тестов как о результате текущего восстановления.
-Пользовательские файлы, локальные окружения и Docker volumes сохранены.
+Добавлены unit/integration pytest-тесты для наследования стилей,
+неопределимых свойств, схем, стабильных ID, таблиц/заголовков, негативных ZIP,
+XML и внешних связей, multipart API, постоянного отчёта, неизменности
+оригинала, streaming upload и timeout. Тесты автономны и не вызывают LLM.
 
-Проверки текущего восстановления: синтаксис Python, согласованность
-Compose/Dockerfile, закреплённых зависимостей и установленного Python 3.12.12.
-Это статические проверки; они не подтверждают сборку Linux-образа.
-
-По договорённости Docker Compose и pytest запускает пользователь через
-Git Bash. В ходе восстановления они **не запускались**; `9 passed` выше —
-ожидаемый результат. Запуск сервисов, установка зависимостей внутри образа,
-LibreOffice, права и сохранность Docker volume требуют ручной проверки.
-Новых результатов покрытия пока нет. Наличие старых `.coverage` и
-`.pytest_cache` не подтверждает прохождение обновлённых тестов.
-
-В каталоге проекта не обнаружен `.git`; Git-история и diff относительно
-коммита недоступны. Инициализация Git не выполнялась.
-Этапы 2–6 не реализовывались; следующий этап начинается после вашей приёмки.
+Docker Compose и pytest на этапе 2 **не запускались**: их запускает
+пользователь через Git Bash. Новое покрытие, сборка Linux-образа, права
+volume `documents_data` и работа HTTP API в контейнере пока не подтверждены.
+Команды самостоятельной приёмки приведены выше; при ошибке передайте лог.
+Этапы 3–6 не начинались.

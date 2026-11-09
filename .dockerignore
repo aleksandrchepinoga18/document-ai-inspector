@@ -11,6 +11,8 @@
 !evaluation/**
 !tests/
 !tests/**
+!samples/
+!samples/**
 **/__pycache__/
 **/*.py[cod]
 **/.env

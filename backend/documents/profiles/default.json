@@ -1,0 +1,25 @@
+{
+  "name": "default",
+  "version": "1.0.0",
+  "paragraph": {
+    "font_name": "Times New Roman",
+    "font_size_pt": 14,
+    "first_line_indent_mm": 12.5,
+    "alignment": "justify"
+  },
+  "heading": {
+    "font_name": "Times New Roman",
+    "font_size_pt": 14,
+    "first_line_indent_mm": 0,
+    "alignment": "left"
+  },
+  "table": {
+    "font_name": "Times New Roman",
+    "font_size_pt": 12,
+    "first_line_indent_mm": 0,
+    "alignment": "left"
+  },
+  "heading_styles": {"1": "Heading 1", "2": "Heading 2"},
+  "required_sections": ["Введение", "Заключение"],
+  "table_caption_pattern": "^Таблица\\s+\\d+(?:\\s|[.\\u2014-]|$)"
+}

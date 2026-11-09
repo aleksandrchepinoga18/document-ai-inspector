@@ -1,1 +1,1 @@
-"""API routes (reserved for subsequent stages)."""
+"""Document inspection and report API routes."""

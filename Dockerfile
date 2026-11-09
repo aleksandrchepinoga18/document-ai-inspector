@@ -12,7 +12,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 inspector \
     && useradd --uid 10001 --gid inspector --create-home inspector \
-    && mkdir -p /app /mlflow/artifacts \
+    && mkdir -p /app/results /mlflow/artifacts \
     && chown -R inspector:inspector /app /mlflow
 
 WORKDIR /app
@@ -23,6 +23,7 @@ RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 COPY --chown=inspector:inspector backend/ ./backend/
 COPY --chown=inspector:inspector frontend/ ./frontend/
 COPY --chown=inspector:inspector evaluation/ ./evaluation/
+COPY --chown=inspector:inspector samples/ ./samples/
 COPY --chown=inspector:inspector tests/ ./tests/
 COPY --chown=inspector:inspector pytest.ini ./pytest.ini
 

@@ -1,1 +1,1 @@
-"""Document parsing, rules, editing and rendering (later stages)."""
+"""Read-only document validation, parsing and formal rules."""

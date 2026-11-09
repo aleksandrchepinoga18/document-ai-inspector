@@ -1,7 +1,7 @@
 name: document-ai-inspector
 
 x-app: &app
-  image: document-ai-inspector:stage1
+  image: document-ai-inspector:stage2
   build:
     context: .
     dockerfile: Dockerfile
@@ -20,6 +20,13 @@ services:
       MLFLOW_TRACKING_URI: http://mlflow:5000
       LIBREOFFICE_BINARY: libreoffice
       PROCESSING_TIMEOUT_SECONDS: ${PROCESSING_TIMEOUT_SECONDS:-120}
+      DATA_DIR: /app/results
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-20971520}
+      MAX_ZIP_ENTRIES: ${MAX_ZIP_ENTRIES:-1000}
+      MAX_UNCOMPRESSED_BYTES: ${MAX_UNCOMPRESSED_BYTES:-104857600}
+      MAX_ZIP_RATIO: ${MAX_ZIP_RATIO:-200}
+    volumes:
+      - documents_data:/app/results
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
       interval: 10s
@@ -71,3 +78,4 @@ services:
 
 volumes:
   mlflow_data:
+  documents_data:

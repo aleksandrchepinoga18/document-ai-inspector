@@ -1,1 +1,1 @@
-"""Document checking pipeline (later stages)."""
+"""Bounded deterministic checking with immutable original storage."""
