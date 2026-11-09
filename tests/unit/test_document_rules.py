@@ -31,7 +31,8 @@ def test_synthetic_cases_have_exact_expected_rules(case):
     parsed = parse_document(data)
     findings = inspect_document(parsed, load_profile("default"))
     assert sorted(f.rule_id for f in findings) == sorted(EXPECTED_RULES[case])
-    assert all(f.status == "open" and not f.auto_fix_allowed for f in findings)
+    assert all(f.status == "open" for f in findings)
+    assert all(not f.auto_fix_allowed for f in findings if f.rule_id != "font_size_pt")
     assert parsed.sha256 == hashlib.sha256(data).hexdigest()
     assert all(location in parsed.node_map for f in findings for location in f.locations)
 
@@ -132,7 +133,7 @@ def test_merged_tables_are_marked_and_not_misdiagnosed(valid_docx):
     assert not any(f.rule_id == "table_caption" for f in inspect_document(parsed, load_profile("default")))
 
 
-def test_finding_schema_forbids_unimplemented_auto_fix():
+def test_finding_schema_forbids_fixed_status_without_permission():
     finding = inspect_document(parse_document(build_document("format_errors")), load_profile("default"))[0]
     with pytest.raises(ValidationError):
-        Finding.model_validate({**finding.model_dump(), "auto_fix_allowed": True})
+        Finding.model_validate({**finding.model_dump(), "auto_fix_allowed": False, "status": "fixed"})

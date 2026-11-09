@@ -52,7 +52,7 @@ def test_valid_document_has_no_false_findings(client, valid_docx):
 
 
 @pytest.mark.parametrize("fields", [
-    {"use_llm": "true"}, {"auto_fix": "true"}, {"provider": "ollama"},
+    {"use_llm": "true"}, {"provider": "ollama"},
 ])
 def test_later_stage_modes_are_explicitly_rejected(client, valid_docx, fields):
     response = upload(client, valid_docx, **fields)
@@ -98,6 +98,6 @@ def test_size_limits_with_and_without_content_length(tmp_path, valid_docx):
         assert response.status_code == 413, response.text
 
 
-def test_document_routes_from_later_stages_do_not_exist(client):
+def test_artifacts_for_unknown_jobs_do_not_exist(client):
     assert client.get(f"/documents/{uuid4()}/download").status_code == 404
     assert client.get(f"/documents/{uuid4()}/preview").status_code == 404

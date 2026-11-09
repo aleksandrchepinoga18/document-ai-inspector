@@ -4,10 +4,11 @@
 [TECHNICAL_SPEC.md](TECHNICAL_SPEC.md), скопированная без изменений из
 `TECHNICAL_SPEC_REVISED.md`.
 
-Реализованы **этапы 1–2**: инфраструктура, безопасное чтение DOCX,
-формальные правила по JSON-профилю, API проверки и постоянные отчёты.
+Реализованы **этапы 1–3**: инфраструктура, безопасное чтение DOCX,
+формальные правила по JSON-профилю, точечные правки размера шрифта,
+OOXML-инварианты, скачивание и PDF через LibreOffice/PyMuPDF.
 Этап 1 принят пользователем: Compose работает, все 9 исходных тестов прошли.
-Редактор, PDF, LLM, бенчмарк и UI-клиент не реализованы.
+LLM, бенчмарк и UI-клиент не реализованы.
 Streamlit остаётся заглушкой этапа 1.
 
 ## Требования
@@ -17,7 +18,7 @@ Streamlit остаётся заглушкой этапа 1.
 - Доступ к Docker Hub, Debian repositories и PyPI для первой сборки.
 - Свободные локальные порты 8000, 8501, 5000.
 
-Python на Windows и Ollama для этапов 1–2 не нужны: контейнеры используют
+Python на Windows и Ollama для этапов 1–3 не нужны: контейнеры используют
 Python 3.12.12. Первый образ достаточно большой: в него входят LibreOffice,
 Streamlit, MLflow, исходники и тестовые зависимости.
 
@@ -62,7 +63,7 @@ docker compose exec api python -m pytest --cov=backend --cov-report=term-missing
 - <http://localhost:5000> — интерфейс MLflow. Метрик моделей пока нет.
 - <http://localhost:8000/docs> — OpenAPI с маршрутом `/health`.
 
-Проверка установленного LibreOffice (конвертация пока не реализована):
+Проверка установленного LibreOffice:
 
 ```bash
 docker compose exec api libreoffice --version
@@ -101,14 +102,18 @@ docker compose down
 | `MAX_ZIP_ENTRIES` | `1000` | Лимит элементов ZIP |
 | `MAX_UNCOMPRESSED_BYTES` | `104857600` | Не более 100 MiB после распаковки |
 | `MAX_ZIP_RATIO` | `200` | Максимальное отношение размера к сжатому размеру каждой части |
+| `RENDER_TIMEOUT_SECONDS` | `60` | Лимит конвертации и проверки PDF, внутри общего processing timeout |
+| `MAX_PDF_BYTES` | `52428800` | Максимальный размер PDF: 50 MiB |
+| `MAX_PDF_PAGES` | `300` | Максимальное число страниц PDF |
 
-Этапы 1–2 не выполняют запросы к Ollama или платным API.
+Этапы 1–3 не выполняют запросы к Ollama или платным API.
 Внутри сети Compose адрес API — `http://api:8000`, MLflow —
 `http://mlflow:5000`. Эти адреса не предназначены для браузера Windows.
 API запускается независимо от доступности MLflow.
 
 Compose задаёт API `DATA_DIR=/app/results`. В отдельном volume
-`documents_data` сохраняются UUID-каталоги с `original.docx` и `report.json`.
+`documents_data` сохраняются UUID-каталоги с `original.docx`, снимком
+профиля `profile.json`, `report.json` и успешными `corrected.docx`/`preview.pdf`.
 Исходник записывается эксклюзивно и проверяется по SHA-256; имя загрузки
 не используется как путь. Для отклонённого после сохранения документа
 остаются исходник и `failure.json`, готового отчёта нет. Автоматической
@@ -189,7 +194,8 @@ mapping ID → исходный OOXML-узел доступен в `ParsedDocume
 
 Смысловое представление пока использует текст с исходными ID из
 python-docx. Docling и LLM на этом этапе не подключаются.
-Ни один файл не исправляется; все `auto_fix_allowed=false`.
+Без `auto_fix=true` файл не исправляется. `auto_fix_allowed=true` ставится
+только для разрешённой правки размера шрифта; список разрешений описан ниже.
 
 ### Создание трёх примеров через Git Bash
 
@@ -237,7 +243,8 @@ POST возвращает HTTP **201**, UUID и полный отчёт; GET в�
 В `findings` будут ровно четыре правила: `alignment` (center → justify),
 `first_line_indent_mm` (0 → 12.5), `font_name` (Arial → Times New Roman),
 `font_size_pt` (10 → 14). Каждое содержит `id`, `element_id`, `locations`,
-цитату `evidence`, `actual`, `expected`, `source=rule` и `auto_fix_allowed=false`.
+цитату `evidence`, `actual`, `expected`, `source=rule`. У размера шрифта
+`auto_fix_allowed=true`, у трёх остальных замечаний — `false`.
 Например, замечание по шрифту указывает на run внутри второго абзаца:
 
 ```json
@@ -283,9 +290,126 @@ curl -i -F 'file=@results/stage2-samples/expected.json;filename=broken.docx;type
 
 Ожидается HTTP 422 и `detail.code=invalid_docx`. Неизвестный профиль — 422,
 неподдерживаемое расширение/MIME — 415, размер — 413, timeout — 504,
-отсутствующий отчёт — 404. `use_llm=true`, `auto_fix=true` и
+отсутствующий отчёт — 404. `use_llm=true` и
 `provider`, отличный от `none`, отклоняются с 422 `unsupported_mode`.
-Маршрутов скачивания и PDF пока нет.
+`auto_fix=true` и `render_pdf=true` поддерживаются на этапе 3.
+
+## Этап 3: безопасные исправления и PDF
+
+Автоматическая правка разрешена только для `font_size_pt`: текстовый run
+с обычным символьным стилем внутри абзаца `Normal` основного текста.
+Заголовки, таблицы, списки, символьные стили, надстрочный/подстрочный текст,
+неопределимые свойства и абзацы со сложными объектами не исправляются.
+Семейство шрифта, выравнивание, отступы, текст, числа, таблицы и формулы
+не изменяются автоматически.
+
+`backend/documents/editor.py` меняет только `w:rPr/w:sz` в
+`word/document.xml` и записывает новую ZIP-копию. Содержимое остальных
+частей сохраняется побайтово; `python-docx.save()` для результата не
+используется. Каждая правка содержит ID замечания, XPath, свойство,
+значения до/после и статус.
+
+`backend/documents/validator.py` заново определяет допустимые правки по
+оригиналу и профилю. Проверяются состав пакета, текст/числа, количество
+структурных элементов, таблицы, формулы, связи, медиа и все защищённые
+части. После отмены только разрешённых изменений канонический XML должен
+совпасть целиком. Побайтового совпадения всего ZIP не требуется.
+
+При отказе проверки `correction.status=rejected`, `validation=failed`,
+причины находятся в `correction.errors`. `download_url=null`; запрос
+обычного `/download` возвращает 409. Исходник доступен по
+`original_download_url` (`/download?original=true`); небезопасная копия
+не публикуется. Если запрошен PDF, при отказе правки допускается только
+предпросмотр исходника с `preview.source=original`.
+
+`render_pdf=true` явно включает PDF; по умолчанию конвертация выключена.
+LibreOffice запускается headless в отдельном временном каталоге с отдельным
+профилем и timeout. В Linux при timeout завершается только его собственная
+группа процессов. Макросы запрещены; документы с полями (в том числе PAGE),
+OLE/embedded-объектами, altChunk и SVG отклоняются для PDF, чтобы не
+выполнять DDE/INCLUDETEXT и другие активные инструкции. Это ограничение
+конвертации не блокирует проверку DOCX и получение отчёта.
+Обычные PNG и OMML допускаются; исправлять их содержимое редактору запрещено.
+
+PyMuPDF проверяет открываемость PDF, отсутствие восстановления/шифрования,
+число/размер страниц и декодирование каждой страницы с маленьким растром.
+Ошибка LibreOffice/PDF сохраняется в `preview.error_code` и `message`,
+`preview_url=null`. Исправленный DOCX при пройденных инвариантах остаётся
+доступным. Скачивание DOCX/PDF дополнительно проверяет SHA-256 сохранённого
+файла; повреждённый артефакт не выдаётся.
+
+Поддерживаемая среда конвертации — Linux-контейнер API. Нативный запуск
+LibreOffice на Windows не проверен. Используются параметры из
+[официальной справки LibreOffice](https://help.libreoffice.org/latest/en-US/text/shared/guide/start_parameters.html)
+и проверки из [API PyMuPDF](https://pymupdf.readthedocs.io/en/latest/document.html).
+Успешный PDF и число страниц **не доказывают отсутствие дефектов вёрстки**.
+Times New Roman не включён в образ: установленные Liberation/DejaVu могут
+использоваться как замены, поэтому внешний вид нужно проверить вручную.
+Для формул в образ явно добавлены LibreOffice Math и шрифт OpenSymbol.
+
+### Ручная приёмка этапа 3 через Git Bash
+
+```bash
+docker compose up -d --build
+docker compose ps
+curl --fail http://localhost:8000/health
+docker compose exec api python -m pytest -v
+docker compose exec api python -m pytest --cov=backend --cov-report=term-missing
+docker compose exec api libreoffice --version
+```
+
+Обычные pytest-тесты не запускают настоящий LibreOffice: конвертация
+замокана, проверки PDF выполняются настоящим PyMuPDF. Дополнительный
+opt-in тест реальной конвертации (без сети и LLM):
+
+```bash
+docker compose exec api python -m pytest -v -m external tests/integration/test_document_export.py::test_real_libreoffice_pdf_export
+```
+
+Создайте новый каталог синтетических примеров, включая таблицу, OMML и PNG:
+
+```bash
+RUN_DIR="results/stage3-$(date +%Y%m%d-%H%M%S)-$RANDOM"
+docker compose exec -T api python -m samples.generate --include-protected --output-dir "$RUN_DIR"
+mkdir -p "$RUN_DIR"
+MSYS_NO_PATHCONV=1 docker compose cp "api:/app/$RUN_DIR/." "./$RUN_DIR"
+```
+
+Генератор создаёт прежние три файла и `protected_objects.docx`.
+Он не перезаписывает существующие файлы. Отправьте защищённый пример:
+
+```bash
+curl --fail-with-body --silent --show-error \
+  -F "file=@$RUN_DIR/protected_objects.docx;type=application/vnd.openxmlformats-officedocument.wordprocessingml.document" \
+  -F 'profile=default' -F 'provider=none' -F 'use_llm=false' \
+  -F 'auto_fix=true' -F 'render_pdf=true' \
+  --output "$RUN_DIR/report.json" http://localhost:8000/documents/check
+cat "$RUN_DIR/report.json"
+JOB_ID=$(docker compose exec -T api python -c 'import json,sys; print(json.load(sys.stdin)["job_id"])' < "$RUN_DIR/report.json")
+curl --fail-with-body --output "$RUN_DIR/corrected.docx" "http://localhost:8000/documents/$JOB_ID/download"
+curl --fail-with-body --output "$RUN_DIR/original.docx" "http://localhost:8000/documents/$JOB_ID/download?original=true"
+curl --fail-with-body --output "$RUN_DIR/preview.pdf" "http://localhost:8000/documents/$JOB_ID/preview"
+cmp "$RUN_DIR/protected_objects.docx" "$RUN_DIR/original.docx"
+```
+
+При ошибке команды остановитесь и изучите ответ/логи перед следующим шагом.
+Ожидается POST 201, скачивания 200 и молчаливый успешный `cmp` (код 0).
+В отчёте — `correction.status=applied`, `validation=passed`, одна правка
+10 → 14 pt, `fixed_count=1`, `open_count=3`. Остальные три замечания
+потребуют ручной работы; в `findings` всего четыре замечания, одно со
+`status=fixed`. `unsupported_features` содержит `drawing` и `formula`:
+эти объекты сохранены без изменения. При успешной конвертации
+`preview.status=available`, `source=corrected`, `pages>=1`.
+
+Откройте исходный и исправленный DOCX и PDF: проверьте таблицу,
+формулу `x + 2 = 42`, синий квадрат, числа `123.45` и `17`.
+При недоступном PDF сначала изучите `preview.error_code` в отчёте и:
+
+```bash
+docker compose logs --tail=100 api
+docker compose exec api libreoffice --version
+docker compose exec api python -c 'import pymupdf; print(pymupdf.__version__)'
+```
 
 ## Воспроизводимость зависимостей
 
@@ -382,4 +506,28 @@ Docker Compose и pytest на этапе 2 **не запускались**: их
 пользователь через Git Bash. Новое покрытие, сборка Linux-образа, права
 volume `documents_data` и работа HTTP API в контейнере пока не подтверждены.
 Команды самостоятельной приёмки приведены выше; при ошибке передайте лог.
-Этапы 3–6 не начинались.
+Эти результаты относятся к этапу 2 до начала этапа 3.
+
+## Статус проверки этапа 3 — 10.11.2026
+
+Добавлены editor, независимый validator, renderer, маршруты скачивания,
+журнал правок и тесты для отказа при нарушении инвариантов. Исходные
+версии зависимостей сохранены, добавлен PyMuPDF 1.26.7 для PDF-проверок.
+Все данные в существующих volume сохранены.
+
+Локально проверены синтаксис/импорты, исправление 10 → 14 pt в отдельном
+worker, успешная проверка инвариантов, сохранение остальных трёх замечаний,
+скачивание копии и побайтовая неизменность оригинала. Защищённый пример
+с OMML, PNG и таблицей также прошёл инварианты с одной разрешённой правкой.
+Локальный сценарий с подменённой конвертацией проверил настоящий PyMuPDF
+и выдачу PDF по HTTP; это не запуск LibreOffice. Инъекция изменения
+защищённого стиля привела к отказу инвариантов, HTTP 409 для исправленной
+копии и доступности исходника. Повреждение сохранённого результата также
+блокируется с HTTP 409.
+LibreOffice на хосте не найден: проверен корректный отказ PDF при сохранении
+доступности DOCX/отчёта. Настоящая конвертация в этой среде не подтверждена.
+
+Docker Compose и pytest по договорённости запускает пользователь через
+Git Bash; на этапе 3 они не запускались. Проверка Linux-образа, реального
+PDF и визуальной вёрстки остаётся частью ручной приёмки выше.
+LLM, OpenCV и этапы 4–6 не реализовывались.

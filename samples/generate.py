@@ -1,4 +1,4 @@
-"""Generate three independent examples; never overwrite an existing file."""
+"""Generate synthetic DOCX examples; never overwrite an existing file."""
 
 import argparse
 import io
@@ -8,10 +8,11 @@ from pathlib import Path
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Mm, Pt
+from docx.oxml import OxmlElement
 
 
 def build_document(case: str) -> bytes:
-    if case not in {"valid", "format_errors", "structure_errors"}:
+    if case not in {"valid", "format_errors", "structure_errors", "protected_objects"}:
         raise ValueError("Unknown synthetic case")
     document = Document()
     normal = document.styles["Normal"]
@@ -33,7 +34,7 @@ def build_document(case: str) -> bytes:
 
     document.add_heading("Введение", level=1)
     paragraph = document.add_paragraph("Синтетический документ для проверки оформления. Данные вымышлены.")
-    if case == "format_errors":
+    if case in {"format_errors", "protected_objects"}:
         paragraph.runs[0].font.name = "Arial"
         paragraph.runs[0].font.size = Pt(10)
         paragraph.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -53,6 +54,19 @@ def build_document(case: str) -> bytes:
     if case != "structure_errors":
         document.add_heading("Заключение", level=1)
         document.add_paragraph("Все сведения созданы специально для демонстрации.")
+    if case == "protected_objects":
+        from PIL import Image
+        document.add_paragraph("Контроль содержания: сумма 123.45, срок 17 дней.")
+        formula = OxmlElement("m:oMath")
+        math_run = OxmlElement("m:r")
+        math_text = OxmlElement("m:t")
+        math_text.text = "x + 2 = 42"
+        math_run.append(math_text)
+        formula.append(math_run)
+        document.add_paragraph()._p.append(formula)
+        image = io.BytesIO()
+        Image.new("RGB", (16, 16), "royalblue").save(image, format="PNG")
+        document.add_picture(io.BytesIO(image.getvalue()), width=Mm(15))
     result = io.BytesIO()
     document.save(result)
     return result.getvalue()
@@ -68,14 +82,16 @@ EXPECTED_RULES = {
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, default=Path("results/samples"))
+    parser.add_argument("--include-protected", action="store_true", help="Также создать DOCX с OMML и PNG для этапа 3")
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    payloads = {
-        f"{case}.docx": build_document(case) for case in EXPECTED_RULES
-    }
+    cases = dict(EXPECTED_RULES)
+    if args.include_protected:
+        cases["protected_objects"] = EXPECTED_RULES["format_errors"]
+    payloads = {f"{case}.docx": build_document(case) for case in cases}
     payloads["expected.json"] = json.dumps({
         f"{case}.docx": {"finding_count": len(rules), "rule_ids": rules}
-        for case, rules in EXPECTED_RULES.items()
+        for case, rules in cases.items()
     }, ensure_ascii=False, indent=2).encode("utf-8")
     collisions = [name for name in payloads if (args.output_dir / name).exists()]
     if collisions:

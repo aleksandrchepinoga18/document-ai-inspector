@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     max_zip_entries: int = Field(default=1000, ge=1, le=10000)
     max_uncompressed_bytes: int = Field(default=100 * 1024 * 1024, ge=1024)
     max_zip_ratio: float = Field(default=200, ge=1, le=1000)
+    render_timeout_seconds: int = Field(default=60, ge=1, le=300)
+    max_pdf_bytes: int = Field(default=50 * 1024 * 1024, ge=1024)
+    max_pdf_pages: int = Field(default=300, ge=1, le=1000)
 
 
 @lru_cache

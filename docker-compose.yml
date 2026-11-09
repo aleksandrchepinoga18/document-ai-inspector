@@ -1,7 +1,7 @@
 name: document-ai-inspector
 
 x-app: &app
-  image: document-ai-inspector:stage2
+  image: document-ai-inspector:stage3
   build:
     context: .
     dockerfile: Dockerfile
@@ -25,6 +25,9 @@ services:
       MAX_ZIP_ENTRIES: ${MAX_ZIP_ENTRIES:-1000}
       MAX_UNCOMPRESSED_BYTES: ${MAX_UNCOMPRESSED_BYTES:-104857600}
       MAX_ZIP_RATIO: ${MAX_ZIP_RATIO:-200}
+      RENDER_TIMEOUT_SECONDS: ${RENDER_TIMEOUT_SECONDS:-60}
+      MAX_PDF_BYTES: ${MAX_PDF_BYTES:-52428800}
+      MAX_PDF_PAGES: ${MAX_PDF_PAGES:-300}
     volumes:
       - documents_data:/app/results
     healthcheck:

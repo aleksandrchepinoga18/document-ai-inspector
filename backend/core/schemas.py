@@ -3,7 +3,7 @@
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 
 class Contract(BaseModel):
@@ -57,8 +57,40 @@ class Finding(Contract):
     expected: JsonValue
     source: Literal["rule", "llm"] = "rule"
     suggestion: str
-    auto_fix_allowed: Literal[False] = False
-    status: Literal["open", "undetermined"] = "open"
+    auto_fix_allowed: bool = False
+    status: Literal["open", "undetermined", "fixed"] = "open"
+
+    @model_validator(mode="after")
+    def fixed_requires_permission(self):
+        if self.status == "fixed" and not self.auto_fix_allowed:
+            raise ValueError("A fixed finding must permit automatic correction")
+        return self
+
+
+class Edit(Contract):
+    finding_id: UUID
+    element_id: str
+    property: Literal["font_size_pt"] = "font_size_pt"
+    before: float
+    after: float
+    status: Literal["applied", "rejected"] = "applied"
+
+
+class Correction(Contract):
+    status: Literal["not_requested", "unchanged", "applied", "rejected"] = "not_requested"
+    validation: Literal["not_run", "passed", "failed"] = "not_run"
+    errors: list[str] = Field(default_factory=list)
+    edits: list[Edit] = Field(default_factory=list)
+    output_sha256: str | None = None
+
+
+class Preview(Contract):
+    status: Literal["not_requested", "available", "failed"] = "not_requested"
+    source: Literal["original", "corrected"] = "original"
+    pages: int | None = None
+    sha256: str | None = None
+    error_code: str | None = None
+    message: str | None = None
 
 
 class DocumentReport(Contract):
@@ -70,9 +102,15 @@ class DocumentReport(Contract):
     profile_version: str
     parser: Literal["python-docx"] = "python-docx"
     use_llm: Literal[False] = False
-    auto_fix: Literal[False] = False
+    auto_fix: bool = False
+    render_pdf: bool = False
     elements: list[Element]
     findings: list[Finding]
     unsupported_features: list[UnsupportedFeature]
     metrics: dict[str, float | int]
     report_url: str
+    download_url: str | None = None
+    original_download_url: str | None = None
+    preview_url: str | None = None
+    correction: Correction = Field(default_factory=Correction)
+    preview: Preview = Field(default_factory=Preview)

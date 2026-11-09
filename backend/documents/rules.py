@@ -1,4 +1,4 @@
-"""Deterministic rules; no mutation, LLM calls or auto-fix decisions."""
+"""Deterministic rules and eligibility for the explicit format-only allowlist."""
 
 import re
 import json
@@ -6,6 +6,7 @@ from uuid import NAMESPACE_URL, uuid5
 
 from backend.core.schemas import Finding, RuleProfile
 from backend.documents.parser import ParsedDocument, element_id
+from backend.documents.fix_policy import permitted_fixes
 
 
 def normalized(text: str) -> str:
@@ -98,4 +99,7 @@ def inspect_document(parsed: ParsedDocument, profile: RuleProfile) -> list[Findi
         if caption is None or caption.kind not in {"paragraph", "heading"} or not caption_pattern.search(caption.text):
             add("table_caption", item, caption.text[:300] if caption else None,
                 profile.table_caption_pattern, "structure")
+    for finding in permitted_fixes(parsed, findings):
+        finding.auto_fix_allowed = True
+        finding.suggestion = "Разрешена правка только размера шрифта этого run в отдельной копии."
     return findings

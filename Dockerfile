@@ -8,7 +8,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        libreoffice-writer fonts-dejavu-core fonts-liberation \
+        libreoffice-writer libreoffice-math fonts-opensymbol fonts-dejavu-core fonts-liberation \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 inspector \
     && useradd --uid 10001 --gid inspector --create-home inspector \
