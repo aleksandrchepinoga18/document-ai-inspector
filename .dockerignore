@@ -1,0 +1,21 @@
+# Allowlist the build inputs; exclude all secrets and local artifacts by default.
+*
+!Dockerfile
+!requirements.txt
+!pytest.ini
+!backend/
+!backend/**
+!frontend/
+!frontend/**
+!evaluation/
+!evaluation/**
+!tests/
+!tests/**
+**/__pycache__/
+**/*.py[cod]
+**/.env
+**/.env.*
+**/*.docx
+**/*.pdf
+**/*.log
+**/*.db
