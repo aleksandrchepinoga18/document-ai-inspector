@@ -1,5 +1,7 @@
 # Document AI Inspector
 
+[![CI](https://github.com/aleksandrchepinoga18/document-ai-inspector/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aleksandrchepinoga18/document-ai-inspector/actions/workflows/ci.yml)
+
 **Учебный ML/LLM-проект для интеллектуальной проверки и безопасного исправления корпоративных DOCX-документов.**
 
 Система объединяет детерминированные правила оформления, поиск межразделовых смысловых противоречий с помощью LLM и адресное редактирование OOXML. Пользователь получает объяснимые замечания с привязкой к исходным фрагментам, отдельную исправленную копию, JSON-отчёт и PDF для просмотра.
@@ -244,7 +246,126 @@ docker compose exec api python -m pytest --cov=backend --cov-report=term-missing
 
 Проверяются parser/rules/editor, OOXML-инварианты, негативные ZIP/XML, метрики и matching, CLI, HTTP API, сохранение исходника и Streamlit → клиент → FastAPI → worker → скачивание. В UI-тестах используется ASGI transport. В отдельных явно обозначенных тестах LLM и конвертация LibreOffice заменены контролируемыми ответами; это не подтверждает работу реальных моделей или настоящую браузерную загрузку файла.
 
-Обычный pytest не вызывает реальные LLM и не требует облачных ключей. Сетевые интеграционные тесты маркированы `external` и требуют явного включения. Проверка Linux-образа, настоящего PDF и UI в браузере входит в [чек-лист ручной приёмки](docs/FINAL_ACCEPTANCE.md). Показатели тестов в этой редакции README повторно не измерялись.
+Обычный pytest не вызывает реальные LLM и не требует облачных ключей. Сетевые интеграционные тесты маркированы `external` и требуют явного включения. Проверка Linux-образа, настоящего PDF и UI в браузере входит в [чек-лист ручной приёмки](docs/FINAL_ACCEPTANCE.md). При подготовке CI локально повторён запуск с `--cov-fail-under=80`: **199 passed, 3 deselected, покрытие 88.34%**. GitHub-hosted runner и публикация образа будут проверены отдельно.
+
+## CI/CD: GitHub Actions и GHCR
+
+Два workflow автоматизируют проверку и доставку образа. **CD здесь означает
+публикацию в GitHub Container Registry, а не развёртывание на сервере.**
+
+### Автоматические проверки
+
+[`ci.yml`](.github/workflows/ci.yml) запускается при `push` в `main` и для Pull Request
+(также при обновлении PR):
+
+1. Ubuntu 24.04, Python 3.12, установка закреплённых зависимостей с `--require-hashes`
+   и проверка совместимости через `pip check`.
+2. Все обычные pytest с существующим `-m "not external"`, включая UI/API,
+   mock-провайдеров и MLflow с временной SQLite. Порог покрытия backend — **80%**;
+   более низкое покрытие завершает job с ошибкой.
+3. После тестов — проверка Compose и сборка существующего Dockerfile без публикации.
+4. В собранном образе — существующий тест настоящего LibreOffice PDF export
+   с `--network none`. Его маркер `external` включается адресно; два теста реальных
+   LLM не запускаются.
+
+Отдельные Ollama, Yandex, vLLM и MLflow Server для CI не требуются. Секреты моделей
+не передаются; реальные LLM-тесты дополнительно выключены переменными запуска.
+Весь CI имеет только `contents: read`.
+
+Логи и результаты доступны во вкладке
+[Actions](https://github.com/aleksandrchepinoga18/document-ai-inspector/actions).
+Бейдж сверху отражает CI ветки `main`; исторические 199 тестов и 88% выше описывают
+локальную финальную проверку, а не результат ещё не выполненного GitHub workflow.
+
+### Публикация после CI
+
+[`publish.yml`](.github/workflows/publish.yml) получает `workflow_run` после завершения
+`CI`. Публикация разрешена только при `conclusion=success`, исходном событии `push`,
+ветке `main` и совпадении репозитория. При ошибке/отмене CI или для PR job публикации
+не выполняется. Проверяется успех всего CI, включая Docker/PDF job.
+
+CD делает checkout именно `head_sha` успешного CI, а не произвольного текущего HEAD;
+артефакты и build-кэши из PR не используются. Для входа в GHCR используется встроенный
+`GITHUB_TOKEN`. Только publish job получает `contents: read` и `packages: write`;
+персональный токен или секреты Docker Hub для него не нужны.
+
+Образ: `ghcr.io/<owner>/document-ai-inspector`, где owner автоматически приводится
+к нижнему регистру. Публикуются `latest` и `sha-<полный commit SHA>`, платформа —
+`linux/amd64`. `latest` указывает на последнюю публикацию; для фиксированной версии
+используйте SHA-тег или digest. Образ содержит приложение и LibreOffice, но не веса LLM.
+
+Условия запуска и публикации основаны на документации
+[workflow_run](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run)
+и [GitHub Container Registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
+
+### Настройки GitHub
+
+1. Основная ветка репозитория — `main`; оба workflow должны находиться в ней.
+   `workflow_run` требует наличия принимающего workflow в default branch.
+2. В **Settings → Actions → General** разрешите GitHub Actions и используемые
+   actions из `actions/*` и `docker/*`. Ограничения организации должны разрешать
+   запрошенный `packages: write`; выдавать глобальные права записи всем jobs не нужно.
+3. При защите `main` добавьте обязательные CI checks **Tests and coverage** и
+   **Docker build and PDF smoke test**. Publish job не делайте обязательной проверкой PR.
+4. После первой публикации найдите пакет в **Packages**. Для анонимного `docker pull`
+   явно установите видимость **Public** в настройках пакета: публичность репозитория
+   сама по себе не делает новый пакет публичным. Если пакет уже существовал,
+   проверьте доступ этого репозитория в **Manage Actions access**.
+5. Secrets Ollama/Yandex/vLLM в GitHub не добавляйте. `GITHUB_TOKEN` создаётся
+   автоматически на время job.
+
+### Локальная проверка и отправка изменений из Git Bash
+
+Эквивалентные проверки в Linux-контейнере, без вызова моделей:
+
+```bash
+docker compose config --quiet
+docker build --tag document-ai-inspector:ci .
+docker run --rm --network none document-ai-inspector:ci \
+  python -m pytest -v -m 'not external' \
+  --cov=backend --cov-report=term-missing --cov-fail-under=80
+docker run --rm --network none document-ai-inspector:ci \
+  python -m pytest -v -m external \
+  tests/integration/test_document_export.py::test_real_libreoffice_pdf_export
+```
+
+После проверки отправку выполняет владелец репозитория. Если прямой push в `main`
+разрешён, последовательность для этих изменений:
+
+```bash
+git add .github/workflows/ci.yml .github/workflows/publish.yml README.md
+git commit -m "ci: test project and publish successful main builds to GHCR"
+git push origin main
+```
+
+При защищённой `main` отправьте рабочую ветку, создайте PR и выполните merge после
+CI. PR только проверяется; публикацию запустит успешный CI нового push в `main`.
+Ручного обхода CI через `workflow_dispatch` у publish workflow нет.
+
+### Получение готового образа
+
+После первого успешного Publish и настройки видимости Public:
+
+```bash
+IMAGE=ghcr.io/aleksandrchepinoga18/document-ai-inspector:latest
+docker pull "$IMAGE"
+```
+
+Чтобы использовать этот общий образ для API/UI/MLflow с существующим Compose,
+вместо локальной сборки:
+
+```bash
+docker tag "$IMAGE" document-ai-inspector:stage6
+docker compose up -d --no-build
+docker compose ps
+```
+
+`.env` по-прежнему настраивается локально по Quick Start. Для private-пакета
+потребуется отдельная локальная авторизация с правом чтения Packages; токен не
+добавляется в репозиторий. В форке замените owner в командах и URL бейджа.
+
+GitHub Actions и загрузка в GHCR будут проверены после отправки этих файлов на GitHub;
+наличие конфигурации не означает, что образ уже опубликован.
 
 ## Хранение, диагностика и остановка
 

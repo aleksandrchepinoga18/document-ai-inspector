@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  MLFLOW_DISABLE_TELEMETRY: "true"
+  STREAMLIT_BROWSER_GATHER_USAGE_STATS: "false"
+  RUN_OLLAMA_TESTS: "0"
+  RUN_YANDEX_TESTS: "0"
+  ALLOW_PAID_TESTS: "0"
+  OLLAMA_MODEL: ""
+  VLLM_MODEL: ""
+  YANDEX_MODEL: ""
+  OLLAMA_API_KEY: ""
+  VLLM_API_KEY: ""
+  YANDEX_API_KEY: ""
+
+jobs:
+  tests:
+    name: Tests and coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install locked dependencies
+        run: python -m pip install --require-hashes -r requirements.txt
+
+      - name: Verify dependency compatibility
+        run: python -m pip check
+
+      # Keep all ordinary tests. Only existing opt-in external tests are excluded.
+      - name: Test with backend coverage of at least 80 percent
+        run: >-
+          python -m pytest -v -m "not external"
+          --cov=backend --cov-report=term-missing --cov-fail-under=80
+
+  docker:
+    name: Docker build and PDF smoke test
+    needs: tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Validate Compose configuration
+        run: docker compose config --quiet
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build without publishing
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: document-ai-inspector:ci
+
+      # This external-marked test needs only the LibreOffice bundled in the image.
+      # Do not enable the real LLM tests; the container has no network or secrets.
+      - name: Test real LibreOffice PDF export without network
+        run: >-
+          docker run --rm --network none document-ai-inspector:ci
+          python -m pytest -v -m external
+          tests/integration/test_document_export.py::test_real_libreoffice_pdf_export
