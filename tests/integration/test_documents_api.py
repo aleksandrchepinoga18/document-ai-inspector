@@ -51,13 +51,14 @@ def test_valid_document_has_no_false_findings(client, valid_docx):
     assert response.json()["unsupported_features"] == []
 
 
-@pytest.mark.parametrize("fields", [
-    {"use_llm": "true"}, {"provider": "ollama"},
+@pytest.mark.parametrize("fields,code", [
+    ({"use_llm": "true"}, "unknown_provider"), ({"provider": "ollama"}, "unsupported_mode"),
+    ({"use_llm": "true", "provider": "unknown"}, "unknown_provider"),
 ])
-def test_later_stage_modes_are_explicitly_rejected(client, valid_docx, fields):
+def test_llm_requires_an_explicit_consistent_provider_selection(client, valid_docx, fields, code):
     response = upload(client, valid_docx, **fields)
     assert response.status_code == 422
-    assert response.json()["detail"]["code"] == "unsupported_mode"
+    assert response.json()["detail"]["code"] == code
 
 
 def test_unknown_and_traversal_profiles_rejected(client, valid_docx):

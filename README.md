@@ -4,11 +4,12 @@
 [TECHNICAL_SPEC.md](TECHNICAL_SPEC.md), скопированная без изменений из
 `TECHNICAL_SPEC_REVISED.md`.
 
-Реализованы **этапы 1–3**: инфраструктура, безопасное чтение DOCX,
+Реализованы **этапы 1–4**: инфраструктура, безопасное чтение DOCX,
 формальные правила по JSON-профилю, точечные правки размера шрифта,
-OOXML-инварианты, скачивание и PDF через LibreOffice/PyMuPDF.
+OOXML-инварианты, скачивание, PDF через LibreOffice/PyMuPDF и опциональные
+LLM-провайдеры с проверкой цитат.
 Этап 1 принят пользователем: Compose работает, все 9 исходных тестов прошли.
-LLM, бенчмарк и UI-клиент не реализованы.
+Бенчмарк и UI-клиент не реализованы.
 Streamlit остаётся заглушкой этапа 1.
 
 ## Требования
@@ -18,9 +19,11 @@ Streamlit остаётся заглушкой этапа 1.
 - Доступ к Docker Hub, Debian repositories и PyPI для первой сборки.
 - Свободные локальные порты 8000, 8501, 5000.
 
-Python на Windows и Ollama для этапов 1–3 не нужны: контейнеры используют
+Python на Windows для этапов 1–4 не нужен: контейнеры используют
 Python 3.12.12. Первый образ достаточно большой: в него входят LibreOffice,
 Streamlit, MLflow, исходники и тестовые зависимости.
+Ollama нужен только для явно выбранного локального LLM-анализа;
+формальная проверка и обычные тесты работают без моделей и облачных ключей.
 
 ## Запуск и ручная приёмка в Git Bash
 
@@ -54,7 +57,7 @@ docker compose exec api python -m pytest --cov=backend --cov-report=term-missing
   времени; повторите `docker compose ps`.
 - `/health` возвращает HTTP 200 и `{"status":"ok"}`.
 - pytest завершается без ошибок, включая исходные 9 тестов и новые проверки
-  этапа 2; external-тесты по умолчанию исключены.
+  этапов 2–4; external-тесты по умолчанию исключены.
 - Проверка покрытия выводит таблицу; обязательный процент пока не задан.
 
 Откройте в браузере:
@@ -97,7 +100,7 @@ docker compose down
 | `APP_NAME` | `Document AI Inspector` | Название API |
 | `PROCESSING_TIMEOUT_SECONDS` | `120` | Резерв для обработки документов, 1–600 секунд |
 | `OLLAMA_BASE_URL` | `http://host.docker.internal:11434/v1` | Адрес Ollama на Windows-хосте из контейнера |
-| `OLLAMA_MODEL` | пусто | Модель выбирается позднее |
+| `OLLAMA_MODEL` | пусто | Имя установленной локальной модели; обязательно при выборе Ollama |
 | `MAX_UPLOAD_BYTES` | `20971520` | Не более 20 MiB на один DOCX |
 | `MAX_ZIP_ENTRIES` | `1000` | Лимит элементов ZIP |
 | `MAX_UNCOMPRESSED_BYTES` | `104857600` | Не более 100 MiB после распаковки |
@@ -106,7 +109,8 @@ docker compose down
 | `MAX_PDF_BYTES` | `52428800` | Максимальный размер PDF: 50 MiB |
 | `MAX_PDF_PAGES` | `300` | Максимальное число страниц PDF |
 
-Этапы 1–3 не выполняют запросы к Ollama или платным API.
+Без `use_llm=true` запросы к моделям не выполняются. Yandex дополнительно
+требует `allow_cloud=true` и `synthetic_data=true` в конкретном запросе.
 Внутри сети Compose адрес API — `http://api:8000`, MLflow —
 `http://mlflow:5000`. Эти адреса не предназначены для браузера Windows.
 API запускается независимо от доступности MLflow.
@@ -290,8 +294,8 @@ curl -i -F 'file=@results/stage2-samples/expected.json;filename=broken.docx;type
 
 Ожидается HTTP 422 и `detail.code=invalid_docx`. Неизвестный профиль — 422,
 неподдерживаемое расширение/MIME — 415, размер — 413, timeout — 504,
-отсутствующий отчёт — 404. `use_llm=true` и
-`provider`, отличный от `none`, отклоняются с 422 `unsupported_mode`.
+отсутствующий отчёт — 404. При `use_llm=false` задайте `provider=none`.
+При `use_llm=true` явно выберите `ollama`, `vllm` или `yandex`.
 `auto_fix=true` и `render_pdf=true` поддерживаются на этапе 3.
 
 ## Этап 3: безопасные исправления и PDF
@@ -410,6 +414,226 @@ docker compose logs --tail=100 api
 docker compose exec api libreoffice --version
 docker compose exec api python -c 'import pymupdf; print(pymupdf.__version__)'
 ```
+
+## Этап 4: LLM-провайдеры и смысловые замечания
+
+`backend/llm/providers.py` содержит `LLMProvider.analyze()` и адаптеры
+Ollama, vLLM, Yandex. Они используют совместимый Chat Completions API через
+[OpenAI Python SDK](https://developers.openai.com/api/reference/python).
+Модель и base URL берутся из окружения, модель по умолчанию не выбирается.
+Для Ollama используется [официальный совместимый endpoint](https://docs.ollama.com/api/openai-compatibility),
+для vLLM — [совместимый сервер](https://docs.vllm.ai/en/latest/serving/online_serving/).
+GPU-развёртывание vLLM не выполняется и не требуется для обычных тестов.
+Реальная работа GPU-сервера не проверялась.
+
+Yandex подключается к `https://ai.api.cloud.yandex.net/v1` через API-ключ
+и URI модели из каталога, как в
+[официальном примере Yandex AI Studio](https://yandex.cloud/ru/docs/tutorials/serverless/create-ai-agent-function).
+В `YANDEX_MODEL` допустим placeholder `{folder_id}`; он заменяется значением
+`YANDEX_FOLDER_ID`. Идентификатор каталога должен совпадать с каталогом URI.
+Это настройка совместимого API, дополнительные агенты/сервисы из примера
+Yandex здесь не разворачиваются.
+
+Смысловой анализ работает по оригиналу в отдельном read-only процессе
+**после** формальных правил и безопасных правок. Ошибка/таймаут LLM
+не отменяет формальный отчёт, исправленный DOCX или проверку инвариантов.
+В prompt передаются текст, `element_id` и `section_id` поддерживаемых
+абзацев основного документа; runs не дублируются. Сложные/неоднозначные
+контейнеры исключаются. Требуются фрагменты минимум двух разделов.
+Docling на этом этапе не подключён; используется извлечение python-docx
+с сохранением исходных ID. Большие документы не усекаются автоматически:
+если превышен лимит фрагментов, LLM пропускается с явной ошибкой,
+а формальные результаты сохраняются.
+
+Prompt версионирован (`cross-section-contradictions-v1`). Ответ должен
+содержать только JSON по Pydantic-схеме `SemanticResponse`, например:
+
+```json
+{
+  "issues": [{
+    "error_type": "contradiction",
+    "severity": "warning",
+    "references": [
+      {"element_id": "<ID из введения>", "quote": "Срок исполнения договора составляет 10 календарных дней."},
+      {"element_id": "<ID из заключения>", "quote": "Срок исполнения договора составляет 30 календарных дней."}
+    ],
+    "explanation": "Для одного договора указаны разные сроки исполнения.",
+    "suggestion": "Проверьте срок исполнения вручную."
+  }]
+}
+```
+
+Сервер проверяет существование ID именно среди отправленных фрагментов,
+дословное вхождение каждой цитаты, разные разделы, отсутствие дубликатов
+ссылок и соответствие схеме. Выдуманный ID, цитата, markdown-обёртка,
+обрезанный ответ или поле с командой автоисправления отклоняют ответ целиком.
+Повторные одинаковые замечания объединяются. Сырой ответ модели не сохраняется.
+
+Принятые замечания попадают в общий `findings` с `source=llm`,
+`category=semantic`, `rule_id=semantic_contradiction`, цитатами и
+`auto_fix_allowed=false`. Даже `auto_fix=true` не разрешает им менять файл.
+Проверенные цитаты подтверждают связь с текстом, но не доказывают, что
+утверждения действительно противоречат друг другу: нужна ручная оценка.
+`issues=[]` означает отсутствие найденных моделью замечаний и не является
+доказательством корректности документа. Оценка качества/benchmark — этап 5.
+
+### Настройки LLM
+
+Добавьте нужные новые переменные из `.env.example` в существующий `.env`,
+сохранив свои настройки. Ключ OpenAI для этих адаптеров не требуется.
+
+| Переменные | Назначение |
+| --- | --- |
+| `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_API_KEY` | Адрес, имя локальной модели, опциональная авторизация |
+| `VLLM_BASE_URL`, `VLLM_MODEL`, `VLLM_API_KEY` | Адрес существующего сервера, модель, опциональная авторизация |
+| `YANDEX_BASE_URL`, `YANDEX_FOLDER_ID`, `YANDEX_MODEL`, `YANDEX_API_KEY` | Совместимый endpoint, каталог, полный URI модели, ключ |
+| `LLM_TIMEOUT_SECONDS=30` | Timeout одной попытки |
+| `LLM_TOTAL_TIMEOUT_SECONDS=45` | Жёсткий предел LLM-процесса внутри общего processing timeout |
+| `LLM_MAX_RETRIES=0` | Дополнительные попытки при timeout/соединении/5xx; 401/403/429 не повторяются |
+| `LLM_TEMPERATURE=0` | Температура генерации |
+| `LLM_MAX_TOKENS=1024` | Предел выхода модели |
+| `LLM_MAX_INPUT_CHARS=20000` | Предел сериализованных фрагментов; фиксированная инструкция/схема добавляются отдельно |
+| `LLM_MAX_FRAGMENTS=200` | Предел числа фрагментов |
+| `LLM_MAX_RESPONSE_CHARS=50000` | Предел принимаемого текста ответа |
+| `LLM_JSON_MODE=true` | Отправлять `response_format={"type":"json_object"}` |
+
+Если сервер/модель не принимает `response_format`, задайте
+`LLM_JSON_MODE=false`: локальная проверка JSON, схемы и цитат остаётся.
+SDK retries отключены; повторения контролирует приложение. Квоты/авторизация
+не повторяются автоматически. `Retry-After` при повторяемой ошибке учитывается;
+если ожидание выходит за deadline, новой попытки нет. При принудительном
+завершении worker число уже отправленных попыток неизвестно: `attempts=null`.
+Для медленного холодного старта увеличьте
+LLM timeout и при необходимости общий `PROCESSING_TIMEOUT_SECONDS` в `.env`.
+
+Ollama/vLLM допускают локальные/внутренние адреса (loopback, private IP,
+Docker service names, `.internal`); публичные адреса блокируются. Ollama
+модели с cloud-суффиксом также блокируются. Администратор должен выбрать
+действительно локальную модель и доверенный сервер: приложение не проверяет
+внутреннюю маршрутизацию/алиасы сервера. Redirect и HTTP proxy из окружения
+для SDK-клиента отключены. Автоматического переключения в облако нет.
+
+Yandex допускается только с `use_llm=true`, `provider=yandex`,
+`allow_cloud=true`, `synthetic_data=true` в одном запросе. Последний флаг —
+подтверждение пользователя, а не автоматическое распознавание чувствительных
+данных. Отправляйте только сгенерированные демонстрационные документы.
+Ключи не включаются в prompt, stdout, report, профиль или JSON-запрос worker;
+LLM-worker получает выбранный ключ через окружение. Ответ с отражённым
+служебным ключом отклоняется. Не публикуйте `.env` и полный вывод
+`docker compose config`: используйте `config --quiet`.
+
+После изменения `.env` примените настройки через `docker compose up -d api`;
+одного `restart` недостаточно для обновления окружения контейнера.
+
+### Самостоятельная проверка Ollama через Git Bash
+
+1. Запустите Ollama на Windows и выберите установленную локальную модель:
+
+```bash
+curl --fail http://localhost:11434/api/tags
+```
+
+2. В `.env` укажите её точное имя в `OLLAMA_MODEL` и оставьте контейнерный
+адрес `OLLAMA_BASE_URL=http://host.docker.internal:11434/v1`.
+Затем выполните:
+
+```bash
+docker compose up -d --build
+docker compose exec api python -m pytest -v
+RUN_DIR="results/stage4-$(date +%Y%m%d-%H%M%S)-$RANDOM"
+docker compose exec -T api python -m samples.generate --include-semantic --output-dir "$RUN_DIR"
+mkdir -p "$RUN_DIR"
+MSYS_NO_PATHCONV=1 docker compose cp "api:/app/$RUN_DIR/." "./$RUN_DIR"
+curl --fail-with-body -sS \
+  -F "file=@$RUN_DIR/semantic_conflict.docx;type=application/octet-stream" \
+  -F 'provider=ollama' -F 'use_llm=true' -F 'auto_fix=false' \
+  --output "$RUN_DIR/ollama-report.json" http://localhost:8000/documents/check
+cat "$RUN_DIR/ollama-report.json"
+```
+
+`semantic_conflict.docx` содержит 10 и 30 дней в двух разделах;
+`semantic_consistent.docx` — 10 дней в обоих. Оба не имеют формальных ошибок.
+В `expected.json` описаны только формальные правила, не метрики LLM.
+Ожидается HTTP 201 и `llm.status=completed`, `json_valid=true`,
+`references_valid=true`. Если модель нашла противоречие, `findings` содержит
+семантическое замечание с двумя реальными ID и цитатами. Количество замечаний
+не гарантируется: это реальный ответ модели, не фиктивный результат.
+Повторите запрос с `semantic_consistent.docx` для отрицательного примера.
+
+Отдельный opt-in тест реальной Ollama, также с синтетическими данными:
+
+```bash
+docker compose exec -e RUN_OLLAMA_TESTS=1 api python -m pytest -v -m external tests/integration/test_llm_external.py::test_real_ollama
+```
+
+### Отдельная проверка Yandex после настройки ключа
+
+Настройте в `.env` `YANDEX_FOLDER_ID`, `YANDEX_API_KEY`, `YANDEX_MODEL`.
+URI модели возьмите из своего каталога, например шаблон
+`gpt://{folder_id}/<выбранная-модель>/<версия>`. Используется API-ключ
+сервисного аккаунта с доступом к выбранной модели; в официальном примере
+указаны роль `ai.languageModels.user` и scope `yc.ai.languageModels.execute`.
+Base URL из `.env.example` — `https://ai.api.cloud.yandex.net/v1`.
+Ниже команды **реально вызывают платный API**, выполняйте их только вручную
+с уже созданным синтетическим `semantic_conflict.docx`:
+
+```bash
+docker compose up -d api
+curl --fail-with-body -sS \
+  -F "file=@$RUN_DIR/semantic_conflict.docx;type=application/octet-stream" \
+  -F 'provider=yandex' -F 'use_llm=true' -F 'allow_cloud=true' \
+  -F 'synthetic_data=true' -F 'auto_fix=false' \
+  --output "$RUN_DIR/yandex-report.json" http://localhost:8000/documents/check
+cat "$RUN_DIR/yandex-report.json"
+```
+
+Либо отдельный реальный тест (тоже платный):
+
+```bash
+docker compose exec -e RUN_YANDEX_TESTS=1 -e ALLOW_PAID_TESTS=1 api python -m pytest -v -m external tests/integration/test_llm_external.py::test_real_yandex
+```
+
+Достаточно выбрать один из этих способов проверки. Без всех подтверждений
+Yandex-запрос не отправляется. Обычный pytest исключает `external`; даже
+при ручном `-m external` реальные LLM-тесты дополнительно требуют своих
+флагов запуска. Наличие ключа в `.env` само по себе не вызывает модель.
+
+### Ошибки и fallback
+
+При недоступной модели HTTP 201 всё ещё означает готовый формальный отчёт;
+смотрите **`llm.status` и `llm.error_code`**, а не только HTTP-код:
+
+| Код | Значение |
+| --- | --- |
+| `llm_not_configured` | Нет обязательной модели/base URL/ключа/каталога |
+| `llm_auth_failed` | Провайдер вернул 401/403 |
+| `llm_quota_or_rate_limit` | Провайдер вернул 429; автоматического повторения нет |
+| `llm_unavailable` | Ошибка соединения или 5xx |
+| `llm_model_or_endpoint_not_found` | Провайдер вернул 404 |
+| `llm_request_rejected` | Несовместимые параметры или другой отказ HTTP |
+| `llm_timeout` | Истёк timeout попытки или всего LLM-процесса |
+| `invalid_llm_json` | JSON/схема ответа невалидны |
+| `invalid_llm_reference`, `invalid_llm_evidence` | Нет подтверждения ID/цитат/разных разделов |
+| `incomplete_llm_response` | Обрезанный ответ, отказ или запрос инструмента |
+| `llm_input_too_large` | Превышен размер/число фрагментов, вызов не выполнялся |
+| `insufficient_sections` | `status=skipped`, не хватает поддерживаемых разделов |
+
+Без подтверждения облака API возвращает 403 `cloud_consent_required` до
+проверки документа; неизвестный/непоследовательный выбор провайдера — 422.
+Прочие ограничения URL/cloud-моделей и внутренние ошибки также явно
+отражаются в `llm.error_code` без текста SDK-исключения или ключей.
+
+Если Ollama доступна на Windows, но не из контейнера, проверьте адрес
+`host.docker.internal`, настройки bind Ollama и Windows Firewall. Затем:
+
+```bash
+docker compose logs --tail=100 api
+docker compose exec api python -c 'import os,urllib.request; print(urllib.request.urlopen(os.environ["OLLAMA_BASE_URL"].rstrip("/")+"/models", timeout=5).read().decode())'
+```
+
+Для vLLM задайте его адрес/модель в `.env` и используйте тот же синтетический
+POST с `provider=vllm`. Это опциональная проверка существующего сервера,
+а не команда развёртывания GPU.
 
 ## Воспроизводимость зависимостей
 
@@ -530,4 +754,27 @@ LibreOffice на хосте не найден: проверен корректн
 Docker Compose и pytest по договорённости запускает пользователь через
 Git Bash; на этапе 3 они не запускались. Проверка Linux-образа, реального
 PDF и визуальной вёрстки остаётся частью ручной приёмки выше.
-LLM, OpenCV и этапы 4–6 не реализовывались.
+Эти результаты относятся к этапу 3 до начала этапа 4.
+
+## Статус проверки этапа 4 — 10.11.2026
+
+Реализованы адаптеры, read-only LLM-worker с жёстким deadline, версионированный
+prompt, типизированные противоречия и проверка цитат, fallback и per-request
+подтверждение облака. Добавлены два синтетических примера, автономные
+unit/integration tests и opt-in external tests. UI, benchmark и MLflow
+логирование моделей не добавлялись: это последующие этапы.
+
+Локально SDK проверен для всех трёх провайдеров только через
+`httpx.MockTransport`: валидное замечание принято; ошибки 401/429/503
+преобразованы в безопасные коды без скрытых повторений. Проверен настоящий
+локальный worker при пустой модели: без сетевого запроса сохранены четыре
+формальных замечания, успешная форматная правка, скачивание DOCX и исходник.
+Yandex без подтверждений возвращает 403 до LLM-фазы.
+Локальный multipart API с SDK/HTTP mocks проверен для всех трёх провайдеров:
+201, одно замечание с подтверждёнными цитатами, GET отчёта и побайтовое
+совпадение скачанного DOCX с оригиналом даже при `auto_fix=true`.
+
+Реальных запросов Ollama/Yandex/vLLM, Docker Compose и pytest на этапе 4
+не выполнялось. Эти проверки выполняет пользователь по командам выше.
+Работа реальных моделей, права/квоты Yandex и GPU-инференс не подтверждены.
+Этапы 5–6 не начинались.

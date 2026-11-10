@@ -12,7 +12,7 @@ from docx.oxml import OxmlElement
 
 
 def build_document(case: str) -> bytes:
-    if case not in {"valid", "format_errors", "structure_errors", "protected_objects"}:
+    if case not in {"valid", "format_errors", "structure_errors", "protected_objects", "semantic_conflict", "semantic_consistent"}:
         raise ValueError("Unknown synthetic case")
     document = Document()
     normal = document.styles["Normal"]
@@ -33,6 +33,14 @@ def build_document(case: str) -> bytes:
         heading.paragraph_format.first_line_indent = Mm(0)
 
     document.add_heading("Введение", level=1)
+    if case in {"semantic_conflict", "semantic_consistent"}:
+        document.add_paragraph("Срок исполнения договора составляет 10 календарных дней.")
+        document.add_heading("Заключение", level=1)
+        days = 30 if case == "semantic_conflict" else 10
+        document.add_paragraph(f"Срок исполнения договора составляет {days} календарных дней.")
+        result = io.BytesIO()
+        document.save(result)
+        return result.getvalue()
     paragraph = document.add_paragraph("Синтетический документ для проверки оформления. Данные вымышлены.")
     if case in {"format_errors", "protected_objects"}:
         paragraph.runs[0].font.name = "Arial"
@@ -83,11 +91,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, default=Path("results/samples"))
     parser.add_argument("--include-protected", action="store_true", help="Также создать DOCX с OMML и PNG для этапа 3")
+    parser.add_argument("--include-semantic", action="store_true", help="Добавить два синтетических примера для LLM этапа 4")
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     cases = dict(EXPECTED_RULES)
     if args.include_protected:
         cases["protected_objects"] = EXPECTED_RULES["format_errors"]
+    if args.include_semantic:
+        cases["semantic_conflict"] = []
+        cases["semantic_consistent"] = []
     payloads = {f"{case}.docx": build_document(case) for case in cases}
     payloads["expected.json"] = json.dumps({
         f"{case}.docx": {"finding_count": len(rules), "rule_ids": rules}

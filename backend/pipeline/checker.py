@@ -9,16 +9,20 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from backend.core.config import Settings
-from backend.core.schemas import DocumentReport, Preview, RuleProfile
+from backend.core.schemas import DocumentReport, Preview, RuleProfile, LLMAnalysis
 from backend.documents.errors import DocumentError
 from backend.documents.renderer import render_pdf as convert_pdf
+from backend.llm.runner import run_llm_analysis, validate_selection
+from backend.llm.providers import SECRET_FIELDS
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def check_document(data: bytes, filename: str, profile: RuleProfile, settings: Settings,
-                   auto_fix: bool = False, render_pdf: bool = False) -> DocumentReport:
+                   auto_fix: bool = False, render_pdf: bool = False, use_llm: bool = False,
+                   provider: str = "none", allow_cloud: bool = False, synthetic_data: bool = False) -> DocumentReport:
+    validate_selection(use_llm, provider, allow_cloud, synthetic_data)
     started = time.monotonic()
     if len(data) > settings.max_upload_bytes:
         raise DocumentError("file_too_large", "Превышен лимит размера DOCX.", 413)
@@ -32,7 +36,7 @@ def check_document(data: bytes, filename: str, profile: RuleProfile, settings: S
         stream.write(profile.model_dump_json(indent=2))
     original_hash = hashlib.sha256(data).hexdigest()
     request = {
-        "original_path": str(original), "settings": settings.model_dump(mode="json"),
+        "original_path": str(original), "settings": settings.model_dump(mode="json", exclude=SECRET_FIELDS),
         "profile": profile.model_dump(mode="json"),
         "auto_fix": auto_fix,
     }
@@ -56,10 +60,29 @@ def check_document(data: bytes, filename: str, profile: RuleProfile, settings: S
             profile_version=profile.version, report_url=f"/documents/{job_id}/report",
             **result,
             auto_fix=auto_fix, render_pdf=render_pdf,
+            use_llm=use_llm, provider=provider,
             original_download_url=f"/documents/{job_id}/download?original=true",
         )
         if report.correction.status != "rejected":
             report.download_url = f"/documents/{job_id}/download"
+        report.metrics["rule_finding_count"] = len(report.findings)
+        if use_llm:
+            remaining = settings.processing_timeout_seconds - (time.monotonic() - started)
+            try:
+                semantic_findings, report.llm = run_llm_analysis(
+                    original, settings, provider, allow_cloud=allow_cloud,
+                    synthetic_data=synthetic_data, timeout=remaining,
+                )
+                report.findings.extend(semantic_findings)
+            except Exception:
+                report.llm = LLMAnalysis(
+                    status="failed", provider=provider, error_code="llm_failed",
+                    attempts=None,
+                    message="Сбой LLM-фазы; формальные результаты сохранены.",
+                )
+        report.metrics["llm_finding_count"] = sum(f.source == "llm" for f in report.findings)
+        report.metrics["finding_count"] = len(report.findings)
+        report.metrics["open_count"] = sum(f.status == "open" for f in report.findings)
         if render_pdf:
             source = "corrected" if report.correction.status == "applied" else "original"
             try:

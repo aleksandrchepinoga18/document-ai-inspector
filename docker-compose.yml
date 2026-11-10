@@ -1,7 +1,7 @@
 name: document-ai-inspector
 
 x-app: &app
-  image: document-ai-inspector:stage3
+  image: document-ai-inspector:stage4
   build:
     context: .
     dockerfile: Dockerfile
@@ -17,6 +17,23 @@ services:
       APP_NAME: ${APP_NAME:-Document AI Inspector}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-}
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
+      VLLM_BASE_URL: ${VLLM_BASE_URL:-}
+      VLLM_MODEL: ${VLLM_MODEL:-}
+      VLLM_API_KEY: ${VLLM_API_KEY:-}
+      YANDEX_BASE_URL: ${YANDEX_BASE_URL:-}
+      YANDEX_FOLDER_ID: ${YANDEX_FOLDER_ID:-}
+      YANDEX_MODEL: ${YANDEX_MODEL:-}
+      YANDEX_API_KEY: ${YANDEX_API_KEY:-}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
+      LLM_TOTAL_TIMEOUT_SECONDS: ${LLM_TOTAL_TIMEOUT_SECONDS:-45}
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-0}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0}
+      LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-1024}
+      LLM_MAX_INPUT_CHARS: ${LLM_MAX_INPUT_CHARS:-20000}
+      LLM_MAX_FRAGMENTS: ${LLM_MAX_FRAGMENTS:-200}
+      LLM_MAX_RESPONSE_CHARS: ${LLM_MAX_RESPONSE_CHARS:-50000}
+      LLM_JSON_MODE: ${LLM_JSON_MODE:-true}
       MLFLOW_TRACKING_URI: http://mlflow:5000
       LIBREOFFICE_BINARY: libreoffice
       PROCESSING_TIMEOUT_SECONDS: ${PROCESSING_TIMEOUT_SECONDS:-120}

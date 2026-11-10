@@ -1,1 +1,1 @@
-"""LLM adapters (not implemented in stage 1)."""
+"""Explicitly selected LLM providers with evidence validation and rules-only fallback."""

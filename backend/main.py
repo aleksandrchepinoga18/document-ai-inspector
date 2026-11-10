@@ -11,7 +11,7 @@ from backend.documents.errors import DocumentError
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
-    application = FastAPI(title=settings.app_name, version="0.3.0")
+    application = FastAPI(title=settings.app_name, version="0.4.0")
     application.state.settings = settings
     application.add_middleware(UploadLimitMiddleware, max_bytes=settings.max_upload_bytes + 64 * 1024)
     application.include_router(router)

@@ -1,4 +1,4 @@
-# Direct dependencies for stages 1-3; full resolved pins are in requirements.txt.
+# Direct dependencies for stages 1-4; full resolved pins are in requirements.txt.
 fastapi==0.119.1
 uvicorn==0.38.0
 pydantic==2.12.3
@@ -15,3 +15,5 @@ lxml==6.1.3
 python-multipart==0.0.33
 # PDF validation only; later 2.x bundles unrelated layout/LLM components.
 PyMuPDF==1.26.7
+# Compatible Chat Completions API; keep the existing HTTPX dependency pins.
+openai==2.6.1

@@ -48,7 +48,7 @@ class UnsupportedFeature(Contract):
 class Finding(Contract):
     id: UUID
     rule_id: str
-    category: Literal["font", "paragraph", "structure"]
+    category: Literal["font", "paragraph", "structure", "semantic"]
     severity: Literal["info", "warning", "error"]
     element_id: str
     locations: list[str] = Field(min_length=1)
@@ -64,6 +64,8 @@ class Finding(Contract):
     def fixed_requires_permission(self):
         if self.status == "fixed" and not self.auto_fix_allowed:
             raise ValueError("A fixed finding must permit automatic correction")
+        if self.source == "llm" and (self.auto_fix_allowed or self.status == "fixed" or self.category != "semantic"):
+            raise ValueError("LLM findings are semantic, advisory and never auto-fixed")
         return self
 
 
@@ -93,6 +95,20 @@ class Preview(Contract):
     message: str | None = None
 
 
+class LLMAnalysis(Contract):
+    status: Literal["not_requested", "completed", "failed", "skipped"] = "not_requested"
+    provider: Literal["none", "ollama", "vllm", "yandex"] = "none"
+    model: str | None = None
+    prompt_version: str | None = None
+    fragment_count: int = 0
+    attempts: int | None = 0
+    duration_seconds: float = 0
+    json_valid: bool | None = None
+    references_valid: bool | None = None
+    error_code: str | None = None
+    message: str | None = None
+
+
 class DocumentReport(Contract):
     job_id: UUID
     status: Literal["completed"] = "completed"
@@ -101,7 +117,9 @@ class DocumentReport(Contract):
     profile: str
     profile_version: str
     parser: Literal["python-docx"] = "python-docx"
-    use_llm: Literal[False] = False
+    use_llm: bool = False
+    provider: Literal["none", "ollama", "vllm", "yandex"] = "none"
+    llm: LLMAnalysis = Field(default_factory=LLMAnalysis)
     auto_fix: bool = False
     render_pdf: bool = False
     elements: list[Element]

@@ -11,6 +11,7 @@ from backend.documents.errors import DocumentError
 from backend.documents.profiles import load_profile
 from backend.documents.security import DOCX_MIME, validate_upload_metadata
 from backend.pipeline.checker import check_document, read_artifact, read_report
+from backend.llm.runner import validate_selection
 
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -25,12 +26,11 @@ async def check(
     use_llm: Annotated[bool, Form()] = False,
     auto_fix: Annotated[bool, Form()] = False,
     render_pdf: Annotated[bool, Form()] = False,
+    allow_cloud: Annotated[bool, Form()] = False,
+    synthetic_data: Annotated[bool, Form()] = False,
 ) -> DocumentReport:
     try:
-        if use_llm or provider != "none":
-            raise DocumentError(
-                "unsupported_mode", "Этап 3 поддерживает только provider=none, use_llm=false.",
-            )
+        validate_selection(use_llm, provider, allow_cloud, synthetic_data)
         selected_profile = load_profile(profile)
         validate_upload_metadata(file.filename, file.content_type)
         settings = request.app.state.settings
@@ -40,6 +40,7 @@ async def check(
         return await run_in_threadpool(
             check_document, data, file.filename, selected_profile, settings,
             auto_fix=auto_fix, render_pdf=render_pdf,
+            use_llm=use_llm, provider=provider, allow_cloud=allow_cloud, synthetic_data=synthetic_data,
         )
     finally:
         await file.close()
