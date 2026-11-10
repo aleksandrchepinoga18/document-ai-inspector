@@ -3,11 +3,17 @@
 import re
 from pathlib import Path
 
-from backend.core.schemas import RuleProfile
+from backend.core.schemas import ProfileOption, RuleProfile
 from backend.documents.errors import DocumentError
 
 
 PROFILE_DIRECTORY = Path(__file__).with_name("profiles")
+
+
+def list_profiles() -> list[ProfileOption]:
+    return [ProfileOption(name=profile.name, version=profile.version)
+            for path in sorted(PROFILE_DIRECTORY.glob("*.json"))
+            for profile in [load_profile(path.stem)]]
 
 
 def load_profile(name: str) -> RuleProfile:

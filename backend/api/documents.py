@@ -6,15 +6,22 @@ from uuid import UUID
 from fastapi import APIRouter, File, Form, Request, Response, UploadFile
 from starlette.concurrency import run_in_threadpool
 
-from backend.core.schemas import DocumentReport
+from backend.core.schemas import DocumentReport, InspectionOptions
 from backend.documents.errors import DocumentError
-from backend.documents.profiles import load_profile
+from backend.documents.profiles import list_profiles, load_profile
 from backend.documents.security import DOCX_MIME, validate_upload_metadata
 from backend.pipeline.checker import check_document, read_artifact, read_report
 from backend.llm.runner import validate_selection
 
 
 router = APIRouter(prefix="/documents", tags=["documents"])
+
+
+@router.get("/options", response_model=InspectionOptions)
+def options(request: Request) -> InspectionOptions:
+    settings = request.app.state.settings
+    return InspectionOptions(profiles=list_profiles(), max_upload_bytes=settings.max_upload_bytes,
+                             processing_timeout_seconds=settings.processing_timeout_seconds)
 
 
 @router.post("/check", response_model=DocumentReport, status_code=201)

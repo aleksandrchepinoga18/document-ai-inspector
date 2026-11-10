@@ -53,5 +53,11 @@ def rewrite_zip(data: bytes, replacements: dict[str, bytes], omit=()) -> bytes:
             if item.filename not in omit and item.filename not in replacements:
                 target.writestr(item.filename, source.read(item.filename))
         for name, payload in replacements.items():
-            target.writestr(name, payload)
+            # ZipInfo normalizes OS separators on Windows. Preserve intentionally
+            # malicious fixture names so the security tests exercise the same ZIP
+            # bytes on both Windows and Linux.
+            info = zipfile.ZipInfo(name)
+            info.filename = info.orig_filename = name
+            info.compress_type = zipfile.ZIP_DEFLATED
+            target.writestr(info, payload)
     return output.getvalue()

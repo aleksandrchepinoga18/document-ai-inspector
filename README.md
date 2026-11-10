@@ -4,22 +4,26 @@
 [TECHNICAL_SPEC.md](TECHNICAL_SPEC.md), скопированная без изменений из
 `TECHNICAL_SPEC_REVISED.md`.
 
-Реализованы **этапы 1–5**: инфраструктура, безопасное чтение DOCX,
+Реализованы **этапы 1–6**: инфраструктура, безопасное чтение DOCX,
 формальные правила по JSON-профилю, точечные правки размера шрифта,
 OOXML-инварианты, скачивание, PDF через LibreOffice/PyMuPDF и опциональные
-LLM-провайдеры с проверкой цитат, синтетический бенчмарк и MLflow Tracking.
+LLM-провайдеры с проверкой цитат, синтетический бенчмарк, MLflow Tracking
+и Streamlit-клиент к настоящему FastAPI.
 Этап 1 принят пользователем: Compose работает, все 9 исходных тестов прошли.
-UI-клиент пока не реализован.
-Streamlit остаётся заглушкой этапа 1.
+Текущий интерфейс: загрузка DOCX или синтетический пример, выбор профиля и LLM,
+таблица замечаний, безопасные правки, журнал, скачивание DOCX/JSON/PDF.
+**[Финальная приёмка, ограничения и демо на 5 минут](docs/FINAL_ACCEPTANCE.md)** —
+актуальная последовательность для этапа 6. Ниже также сохранены команды и
+исторические статусы предыдущих этапов; они не подтверждают текущую сборку.
 
 ## Требования
 
 - Windows 10/11, Docker Desktop с Linux containers и работающим Docker Engine.
 - Git Bash; все команды ниже выполняются из корня этого проекта.
 - Доступ к Docker Hub, Debian repositories и PyPI для первой сборки.
-- Свободные локальные порты 8000, 8501, 5000.
+- Свободные локальные порты 18000, 8501, 5000. Внутренний порт API — 8000.
 
-Python на Windows для этапов 1–4 не нужен: контейнеры используют
+Python на Windows для Docker-запуска не нужен: контейнеры используют
 Python 3.12.12. Первый образ достаточно большой: в него входят LibreOffice,
 Streamlit, MLflow, исходники и тестовые зависимости.
 Ollama нужен только для явно выбранного локального LLM-анализа;
@@ -44,7 +48,7 @@ test -f .env || cp .env.example .env
 docker compose config --quiet
 docker compose up -d --build
 docker compose ps
-curl --fail http://localhost:8000/health
+curl --fail http://localhost:18000/health
 docker compose exec api python -m pytest -v
 docker compose exec api python -m pytest --cov=backend --cov-report=term-missing
 ```
@@ -57,14 +61,14 @@ docker compose exec api python -m pytest --cov=backend --cov-report=term-missing
   времени; повторите `docker compose ps`.
 - `/health` возвращает HTTP 200 и `{"status":"ok"}`.
 - pytest завершается без ошибок, включая исходные 9 тестов и новые проверки
-  этапов 2–4; external-тесты по умолчанию исключены.
+  этапов 1–6; external-тесты по умолчанию исключены.
 - Проверка покрытия выводит таблицу; обязательный процент пока не задан.
 
 Откройте в браузере:
 
-- <http://localhost:8501> — заголовок Document AI Inspector и сообщение об этапе 1.
-- <http://localhost:5000> — интерфейс MLflow. Метрик моделей пока нет.
-- <http://localhost:8000/docs> — OpenAPI с маршрутом `/health`.
+- <http://localhost:8501> — интерфейс проверки документов.
+- <http://localhost:5000> — интерфейс MLflow с сохранёнными запусками benchmark.
+- <http://localhost:18000/docs> — OpenAPI с маршрутами проверки и скачивания.
 
 Проверка установленного LibreOffice:
 
@@ -222,10 +226,10 @@ MSYS_NO_PATHCONV=1 docker compose cp api:/app/results/stage2-samples/. ./results
 response=$(curl --fail-with-body --silent --show-error \
   -F 'file=@results/stage2-samples/format_errors.docx;type=application/vnd.openxmlformats-officedocument.wordprocessingml.document' \
   -F 'profile=default' -F 'provider=none' -F 'use_llm=false' -F 'auto_fix=false' \
-  http://localhost:8000/documents/check)
+  http://localhost:18000/documents/check)
 printf '%s\n' "$response"
 JOB_ID=$(printf '%s' "$response" | docker compose exec -T api python -c 'import json,sys; print(json.load(sys.stdin)["job_id"])')
-curl --fail-with-body "http://localhost:8000/documents/$JOB_ID/report"
+curl --fail-with-body "http://localhost:18000/documents/$JOB_ID/report"
 ```
 
 POST возвращает HTTP **201**, UUID и полный отчёт; GET возвращает HTTP 200
@@ -267,9 +271,9 @@ POST возвращает HTTP **201**, UUID и полный отчёт; GET в�
 
 ```bash
 curl --fail-with-body -F 'file=@results/stage2-samples/valid.docx;type=application/vnd.openxmlformats-officedocument.wordprocessingml.document' \
-  -F 'use_llm=false' http://localhost:8000/documents/check
+  -F 'use_llm=false' http://localhost:18000/documents/check
 curl --fail-with-body -F 'file=@results/stage2-samples/structure_errors.docx;type=application/vnd.openxmlformats-officedocument.wordprocessingml.document' \
-  -F 'use_llm=false' http://localhost:8000/documents/check
+  -F 'use_llm=false' http://localhost:18000/documents/check
 ```
 
 Для `valid.docx` ожидается пустой `findings`; для `structure_errors.docx` —
@@ -289,7 +293,7 @@ docker compose exec -T -e JOB_ID="$JOB_ID" api python -c 'import hashlib,json,os
 
 ```bash
 curl -i -F 'file=@results/stage2-samples/expected.json;filename=broken.docx;type=application/vnd.openxmlformats-officedocument.wordprocessingml.document' \
-  http://localhost:8000/documents/check
+  http://localhost:18000/documents/check
 ```
 
 Ожидается HTTP 422 и `detail.code=invalid_docx`. Неизвестный профиль — 422,
@@ -356,7 +360,7 @@ Times New Roman не включён в образ: установленные Li
 ```bash
 docker compose up -d --build
 docker compose ps
-curl --fail http://localhost:8000/health
+curl --fail http://localhost:18000/health
 docker compose exec api python -m pytest -v
 docker compose exec api python -m pytest --cov=backend --cov-report=term-missing
 docker compose exec api libreoffice --version
@@ -387,12 +391,12 @@ curl --fail-with-body --silent --show-error \
   -F "file=@$RUN_DIR/protected_objects.docx;type=application/vnd.openxmlformats-officedocument.wordprocessingml.document" \
   -F 'profile=default' -F 'provider=none' -F 'use_llm=false' \
   -F 'auto_fix=true' -F 'render_pdf=true' \
-  --output "$RUN_DIR/report.json" http://localhost:8000/documents/check
+  --output "$RUN_DIR/report.json" http://localhost:18000/documents/check
 cat "$RUN_DIR/report.json"
 JOB_ID=$(docker compose exec -T api python -c 'import json,sys; print(json.load(sys.stdin)["job_id"])' < "$RUN_DIR/report.json")
-curl --fail-with-body --output "$RUN_DIR/corrected.docx" "http://localhost:8000/documents/$JOB_ID/download"
-curl --fail-with-body --output "$RUN_DIR/original.docx" "http://localhost:8000/documents/$JOB_ID/download?original=true"
-curl --fail-with-body --output "$RUN_DIR/preview.pdf" "http://localhost:8000/documents/$JOB_ID/preview"
+curl --fail-with-body --output "$RUN_DIR/corrected.docx" "http://localhost:18000/documents/$JOB_ID/download"
+curl --fail-with-body --output "$RUN_DIR/original.docx" "http://localhost:18000/documents/$JOB_ID/download?original=true"
+curl --fail-with-body --output "$RUN_DIR/preview.pdf" "http://localhost:18000/documents/$JOB_ID/preview"
 cmp "$RUN_DIR/protected_objects.docx" "$RUN_DIR/original.docx"
 ```
 
@@ -547,7 +551,7 @@ MSYS_NO_PATHCONV=1 docker compose cp "api:/app/$RUN_DIR/." "./$RUN_DIR"
 curl --fail-with-body -sS \
   -F "file=@$RUN_DIR/semantic_conflict.docx;type=application/octet-stream" \
   -F 'provider=ollama' -F 'use_llm=true' -F 'auto_fix=false' \
-  --output "$RUN_DIR/ollama-report.json" http://localhost:8000/documents/check
+  --output "$RUN_DIR/ollama-report.json" http://localhost:18000/documents/check
 cat "$RUN_DIR/ollama-report.json"
 ```
 
@@ -583,7 +587,7 @@ curl --fail-with-body -sS \
   -F "file=@$RUN_DIR/semantic_conflict.docx;type=application/octet-stream" \
   -F 'provider=yandex' -F 'use_llm=true' -F 'allow_cloud=true' \
   -F 'synthetic_data=true' -F 'auto_fix=false' \
-  --output "$RUN_DIR/yandex-report.json" http://localhost:8000/documents/check
+  --output "$RUN_DIR/yandex-report.json" http://localhost:18000/documents/check
 cat "$RUN_DIR/yandex-report.json"
 ```
 
@@ -693,7 +697,7 @@ docker compose run --rm --no-deps mlflow ls -ld /mlflow /mlflow/artifacts
 - При ошибке `/health`:
 
 ```bash
-curl -i http://localhost:8000/health
+curl -i http://localhost:18000/health
 docker compose logs --tail=100 api
 ```
 

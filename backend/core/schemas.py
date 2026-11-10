@@ -28,6 +28,17 @@ class RuleProfile(Contract):
     table_caption_pattern: str
 
 
+class ProfileOption(Contract):
+    name: str
+    version: str
+
+
+class InspectionOptions(Contract):
+    profiles: list[ProfileOption]
+    max_upload_bytes: int = Field(gt=0)
+    processing_timeout_seconds: int = Field(gt=0)
+
+
 class Element(Contract):
     id: str
     kind: Literal["document", "paragraph", "heading", "run", "table"]
