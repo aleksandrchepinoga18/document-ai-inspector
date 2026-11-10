@@ -7,7 +7,7 @@ from uuid import NAMESPACE_URL, uuid5
 from pydantic import ValidationError
 
 from backend.core.config import Settings
-from backend.core.schemas import Finding, LLMAnalysis
+from backend.core.schemas import Finding, LLMAnalysis, LLMValidationProblem
 from backend.documents.parser import ParsedDocument
 from backend.llm.errors import LLMError
 from backend.llm.prompts import PROMPT_VERSION
@@ -37,17 +37,28 @@ def grounded_findings(content: str, fragments: list[Fragment], sha256: str) -> l
     response = SemanticResponse.model_validate_json(content)
     sent = {f.element_id: f for f in fragments}
     findings, seen = [], set()
-    for issue in response.issues:
+    def reject(code, message, reason, issue_index, reference_index=None):
+        raise LLMError(code, message, diagnostic=LLMValidationProblem(
+            issue_index=issue_index, reference_index=reference_index, reason=reason))
+
+    for issue_index, issue in enumerate(response.issues):
         ids = [r.element_id for r in issue.references]
-        if len(set(ids)) != len(ids) or any(identifier not in sent for identifier in ids):
-            raise LLMError("invalid_llm_reference", "Ответ ссылается на неизвестный или повторный фрагмент.")
+        if len(set(ids)) != len(ids):
+            reject("invalid_llm_reference", "Ответ ссылается на повторный фрагмент.", "duplicate_id", issue_index)
+        for reference_index, identifier in enumerate(ids):
+            if identifier not in sent:
+                reject("invalid_llm_reference", "Ответ ссылается на неизвестный фрагмент.",
+                       "unknown_id", issue_index, reference_index)
         if len({sent[identifier].section_id for identifier in ids}) < 2:
-            raise LLMError("invalid_llm_reference", "Для противоречия нужны цитаты из разных разделов.")
-        for reference in issue.references:
+            reject("invalid_llm_reference", "Для противоречия нужны цитаты из разных разделов.",
+                   "same_section", issue_index)
+        for reference_index, reference in enumerate(issue.references):
             if len(reference.quote.strip()) < 8 or not any(c.isalnum() for c in reference.quote):
-                raise LLMError("invalid_llm_evidence", "Ответ содержит неинформативную цитату.")
+                reject("invalid_llm_evidence", "Ответ содержит неинформативную цитату.",
+                       "uninformative_quote", issue_index, reference_index)
             if reference.quote not in sent[reference.element_id].text:
-                raise LLMError("invalid_llm_evidence", "Цитата модели не совпадает с текстом указанного фрагмента.")
+                reject("invalid_llm_evidence", "Цитата модели не совпадает с текстом указанного фрагмента.",
+                       "quote_not_found", issue_index, reference_index)
         key = json.dumps(sorted((r.element_id, r.quote) for r in issue.references), ensure_ascii=False)
         if key in seen:
             continue
@@ -97,11 +108,17 @@ def analyze_document(parsed: ParsedDocument, settings: Settings, provider_name: 
             raise LLMError("invalid_llm_json", "Модель вернула JSON, не соответствующий схеме.") from exc
         if credential and credential in validated_response.model_dump_json():
             raise LLMError("llm_sensitive_response", "Ответ провайдера содержит служебные данные и отклонён.")
+        metadata.response_issue_count = len(validated_response.issues)
         try:
             findings = grounded_findings(reply.content, fragments, parsed.sha256)
             metadata.references_valid = True
-        except LLMError:
+            metadata.discarded_issue_count = 0
+        except LLMError as exc:
             metadata.references_valid = False
+            # The existing all-or-nothing contract discards the whole response.
+            metadata.discarded_issue_count = metadata.response_issue_count
+            if exc.diagnostic is not None:
+                metadata.validation_diagnostics.append(exc.diagnostic)
             raise
         metadata.status = "completed"
         return findings, metadata

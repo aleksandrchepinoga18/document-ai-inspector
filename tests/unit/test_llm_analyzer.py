@@ -56,6 +56,10 @@ def test_hallucinated_or_invalid_evidence_is_rejected(llm_settings, mutation, co
     findings, metadata = analyze_document(parsed, llm_settings, "ollama", transport=transport)
     assert not findings and metadata.status == "failed" and metadata.error_code == code
     assert metadata.json_valid is True and metadata.references_valid is False
+    expected_reason = {"unknown_id": "unknown_id", "invented_quote": "quote_not_found",
+                       "duplicate_id": "duplicate_id", "same_section": "same_section"}[mutation]
+    assert metadata.validation_diagnostics[0].reason == expected_reason
+    assert metadata.response_issue_count == metadata.discarded_issue_count == 1
 
 
 @pytest.mark.parametrize("content", ["not JSON", "```json\n{\"issues\":[]}\n```", '{"issues":"wrong-type"}',
@@ -81,6 +85,34 @@ def test_empty_result_is_valid_but_not_a_quality_guarantee(llm_settings):
     findings, metadata = analyze_document(sample(), llm_settings, "ollama", transport=transport)
     assert not findings and metadata.status == "completed"
     assert metadata.json_valid and metadata.references_valid
+    assert metadata.response_issue_count == metadata.discarded_issue_count == 0
+    assert metadata.validation_diagnostics == []
+
+
+@pytest.mark.parametrize("quote,reason", [("         ", "uninformative_quote"),
+                                         ("Sensitive invented quotation", "quote_not_found")])
+def test_rejected_evidence_has_safe_coordinates_and_is_not_an_empty_answer(llm_settings, quote, reason):
+    payload = mock_semantic_payload(extract_fragments(sample()))
+    # First issue is valid, second is not: all issues are discarded by contract.
+    bad = copy.deepcopy(payload["issues"][0])
+    bad["references"][1]["quote"] = quote
+    payload["issues"].append(bad)
+    transport = httpx.MockTransport(lambda r: httpx.Response(200, json=mock_chat_completion(json.dumps(payload))))
+    findings, metadata = analyze_document(sample(), llm_settings, "ollama", transport=transport)
+    assert findings == [] and metadata.status == "failed"
+    assert metadata.error_code == "invalid_llm_evidence" and metadata.json_valid is True
+    assert metadata.response_issue_count == metadata.discarded_issue_count == 2
+    assert metadata.validation_diagnostics[0].model_dump() == {
+        "issue_index": 1, "reference_index": 1, "reason": reason}
+    assert quote not in metadata.model_dump_json()
+
+
+@pytest.mark.parametrize("content", ['{}', '{"issues":null}', '{"issues":[{}]}'])
+def test_missing_or_broken_issue_list_is_not_a_valid_empty_response(llm_settings, content):
+    transport = httpx.MockTransport(lambda r: httpx.Response(200, json=mock_chat_completion(content)))
+    findings, metadata = analyze_document(sample(), llm_settings, "ollama", transport=transport)
+    assert not findings and metadata.error_code == "invalid_llm_json"
+    assert metadata.response_issue_count is None and metadata.discarded_issue_count is None
 
 
 def test_input_limit_does_not_silently_truncate_or_send_data(llm_settings):

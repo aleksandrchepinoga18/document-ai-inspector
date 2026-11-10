@@ -1,0 +1,666 @@
+[
+  {
+    "document_id": "positive-payment",
+    "kind": "positive",
+    "prediction_count": 1,
+    "gold_count": 1,
+    "tp": 1,
+    "fp": 0,
+    "fn": 0,
+    "prediction_locations": [
+      [
+        "word/document.xml:/w:document/w:body/w:p[2]",
+        "word/document.xml:/w:document/w:body/w:p[4]"
+      ]
+    ],
+    "prediction_evidence": [
+      [
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+          "quote": "Срок оплаты по договору А составляет 10 календарных дней."
+        },
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+          "quote": "Срок оплаты по договору А составляет 30 календарных дней."
+        }
+      ]
+    ],
+    "status": "completed",
+    "json_valid": true,
+    "references_valid": true,
+    "duration_seconds": 41.1509,
+    "error_code": null,
+    "attempts": 1
+  },
+  {
+    "document_id": "positive-budget",
+    "kind": "positive",
+    "prediction_count": 1,
+    "gold_count": 1,
+    "tp": 1,
+    "fp": 0,
+    "fn": 0,
+    "prediction_locations": [
+      [
+        "word/document.xml:/w:document/w:body/w:p[2]",
+        "word/document.xml:/w:document/w:body/w:p[4]"
+      ]
+    ],
+    "prediction_evidence": [
+      [
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+          "quote": "Общий бюджет проекта А утверждён в размере 5 миллионов рублей."
+        },
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+          "quote": "Общий бюджет проекта А утверждён в размере 8 миллионов рублей."
+        }
+      ]
+    ],
+    "status": "completed",
+    "json_valid": true,
+    "references_valid": true,
+    "duration_seconds": 25.8343,
+    "error_code": null,
+    "attempts": 1
+  },
+  {
+    "document_id": "positive-deadline",
+    "kind": "positive",
+    "prediction_count": 1,
+    "gold_count": 1,
+    "tp": 1,
+    "fp": 0,
+    "fn": 0,
+    "prediction_locations": [
+      [
+        "word/document.xml:/w:document/w:body/w:p[2]",
+        "word/document.xml:/w:document/w:body/w:p[4]"
+      ]
+    ],
+    "prediction_evidence": [
+      [
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+          "quote": "Окончательная дата сдачи проекта А — 15 декабря 2026 года."
+        },
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+          "quote": "Окончательная дата сдачи проекта А — 25 декабря 2026 года."
+        }
+      ]
+    ],
+    "status": "completed",
+    "json_valid": true,
+    "references_valid": true,
+    "duration_seconds": 28.2651,
+    "error_code": null,
+    "attempts": 1
+  },
+  {
+    "document_id": "positive-owner",
+    "kind": "positive",
+    "prediction_count": 1,
+    "gold_count": 1,
+    "tp": 1,
+    "fp": 0,
+    "fn": 0,
+    "prediction_locations": [
+      [
+        "word/document.xml:/w:document/w:body/w:p[2]",
+        "word/document.xml:/w:document/w:body/w:p[4]"
+      ]
+    ],
+    "prediction_evidence": [
+      [
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+          "quote": "Единственным ответственным за согласование проекта А назначен отдел закупок."
+        },
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+          "quote": "Единственным ответственным за согласование проекта А назначен финансовый отдел."
+        }
+      ]
+    ],
+    "status": "completed",
+    "json_valid": true,
+    "references_valid": true,
+    "duration_seconds": 24.1169,
+    "error_code": null,
+    "attempts": 1
+  },
+  {
+    "document_id": "positive-retention",
+    "kind": "positive",
+    "prediction_count": 0,
+    "gold_count": 1,
+    "tp": 0,
+    "fp": 0,
+    "fn": 1,
+    "prediction_locations": [],
+    "prediction_evidence": [],
+    "status": "failed",
+    "json_valid": true,
+    "references_valid": false,
+    "duration_seconds": 27.2391,
+    "error_code": "invalid_llm_evidence",
+    "attempts": 1
+  },
+  {
+    "document_id": "positive-access",
+    "kind": "positive",
+    "prediction_count": 1,
+    "gold_count": 1,
+    "tp": 1,
+    "fp": 0,
+    "fn": 0,
+    "prediction_locations": [
+      [
+        "word/document.xml:/w:document/w:body/w:p[2]",
+        "word/document.xml:/w:document/w:body/w:p[4]"
+      ]
+    ],
+    "prediction_evidence": [
+      [
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+          "quote": "Подрядчикам запрещён доступ к системе А при любых условиях."
+        },
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+          "quote": "Подрядчикам разрешён доступ к системе А после согласования заявки."
+        }
+      ]
+    ],
+    "status": "completed",
+    "json_valid": true,
+    "references_valid": true,
+    "duration_seconds": 28.5503,
+    "error_code": null,
+    "attempts": 1
+  },
+  {
+    "document_id": "positive-frequency",
+    "kind": "positive",
+    "prediction_count": 1,
+    "gold_count": 1,
+    "tp": 1,
+    "fp": 0,
+    "fn": 0,
+    "prediction_locations": [
+      [
+        "word/document.xml:/w:document/w:body/w:p[2]",
+        "word/document.xml:/w:document/w:body/w:p[4]"
+      ]
+    ],
+    "prediction_evidence": [
+      [
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+          "quote": "Плановая проверка системы А проводится ровно один раз в месяц."
+        },
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+          "quote": "Плановая проверка системы А проводится ровно один раз в квартал."
+        }
+      ]
+    ],
+    "status": "completed",
+    "json_valid": true,
+    "references_valid": true,
+    "duration_seconds": 25.1149,
+    "error_code": null,
+    "attempts": 1
+  },
+  {
+    "document_id": "positive-warranty",
+    "kind": "positive",
+    "prediction_count": 0,
+    "gold_count": 1,
+    "tp": 0,
+    "fp": 0,
+    "fn": 1,
+    "prediction_locations": [],
+    "prediction_evidence": [],
+    "status": "failed",
+    "json_valid": true,
+    "references_valid": false,
+    "duration_seconds": 25.8874,
+    "error_code": "invalid_llm_evidence",
+    "attempts": 1
+  },
+  {
+    "document_id": "positive-staff",
+    "kind": "positive",
+    "prediction_count": 0,
+    "gold_count": 1,
+    "tp": 0,
+    "fp": 0,
+    "fn": 1,
+    "prediction_locations": [],
+    "prediction_evidence": [],
+    "status": "failed",
+    "json_valid": true,
+    "references_valid": false,
+    "duration_seconds": 27.9304,
+    "error_code": "invalid_llm_evidence",
+    "attempts": 1
+  },
+  {
+    "document_id": "positive-currency",
+    "kind": "positive",
+    "prediction_count": 1,
+    "gold_count": 1,
+    "tp": 1,
+    "fp": 0,
+    "fn": 0,
+    "prediction_locations": [
+      [
+        "word/document.xml:/w:document/w:body/w:p[2]",
+        "word/document.xml:/w:document/w:body/w:p[4]"
+      ]
+    ],
+    "prediction_evidence": [
+      [
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+          "quote": "Все расчёты по договору А производятся исключительно в рублях."
+        },
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+          "quote": "Все расчёты по договору А производятся исключительно в евро."
+        }
+      ]
+    ],
+    "status": "completed",
+    "json_valid": true,
+    "references_valid": true,
+    "duration_seconds": 34.0348,
+    "error_code": null,
+    "attempts": 1
+  },
+  {
+    "document_id": "positive-approval",
+    "kind": "positive",
+    "prediction_count": 1,
+    "gold_count": 1,
+    "tp": 1,
+    "fp": 0,
+    "fn": 0,
+    "prediction_locations": [
+      [
+        "word/document.xml:/w:document/w:body/w:p[2]",
+        "word/document.xml:/w:document/w:body/w:p[4]"
+      ]
+    ],
+    "prediction_evidence": [
+      [
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+          "quote": "Для каждой закупки категории А обязательно согласование директора."
+        },
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+          "quote": "Для закупок категории А стоимостью до 100 тысяч рублей согласование директора не требуется."
+        }
+      ]
+    ],
+    "status": "completed",
+    "json_valid": true,
+    "references_valid": true,
+    "duration_seconds": 32.7702,
+    "error_code": null,
+    "attempts": 1
+  },
+  {
+    "document_id": "positive-storage",
+    "kind": "positive",
+    "prediction_count": 1,
+    "gold_count": 1,
+    "tp": 0,
+    "fp": 1,
+    "fn": 1,
+    "prediction_locations": [
+      [
+        "word/document.xml:/w:document/w:body/w:p[2]",
+        "word/document.xml:/w:document/w:body/w:p[4]"
+      ]
+    ],
+    "prediction_evidence": [
+      [
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+          "quote": "Единственное место хранения резервных копий системы А — площадка Север"
+        },
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+          "quote": "Единственное место хранения резервных копий системы А — площадка Юг"
+        }
+      ]
+    ],
+    "status": "completed",
+    "json_valid": true,
+    "references_valid": true,
+    "duration_seconds": 24.9078,
+    "error_code": null,
+    "attempts": 1
+  },
+  {
+    "document_id": "negative-same",
+    "kind": "negative",
+    "prediction_count": 0,
+    "gold_count": 0,
+    "tp": 0,
+    "fp": 0,
+    "fn": 0,
+    "prediction_locations": [],
+    "prediction_evidence": [],
+    "status": "failed",
+    "json_valid": true,
+    "references_valid": false,
+    "duration_seconds": 25.2046,
+    "error_code": "invalid_llm_evidence",
+    "attempts": 1
+  },
+  {
+    "document_id": "negative-objects",
+    "kind": "negative",
+    "prediction_count": 0,
+    "gold_count": 0,
+    "tp": 0,
+    "fp": 0,
+    "fn": 0,
+    "prediction_locations": [],
+    "prediction_evidence": [],
+    "status": "completed",
+    "json_valid": true,
+    "references_valid": true,
+    "duration_seconds": 3.4409,
+    "error_code": null,
+    "attempts": 1
+  },
+  {
+    "document_id": "negative-phases",
+    "kind": "negative",
+    "prediction_count": 1,
+    "gold_count": 0,
+    "tp": 0,
+    "fp": 1,
+    "fn": 0,
+    "prediction_locations": [
+      [
+        "word/document.xml:/w:document/w:body/w:p[2]",
+        "word/document.xml:/w:document/w:body/w:p[4]"
+      ]
+    ],
+    "prediction_evidence": [
+      [
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+          "quote": "На пилотном этапе в команде проекта А ровно 8 сотрудников."
+        },
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+          "quote": "На промышленном этапе в команде проекта А ровно 12 сотрудников."
+        }
+      ]
+    ],
+    "status": "completed",
+    "json_valid": true,
+    "references_valid": true,
+    "duration_seconds": 24.53,
+    "error_code": null,
+    "attempts": 1
+  },
+  {
+    "document_id": "negative-conditions",
+    "kind": "negative",
+    "prediction_count": 0,
+    "gold_count": 0,
+    "tp": 0,
+    "fp": 0,
+    "fn": 0,
+    "prediction_locations": [],
+    "prediction_evidence": [],
+    "status": "completed",
+    "json_valid": true,
+    "references_valid": true,
+    "duration_seconds": 2.6603,
+    "error_code": null,
+    "attempts": 1
+  },
+  {
+    "document_id": "negative-history",
+    "kind": "negative",
+    "prediction_count": 0,
+    "gold_count": 0,
+    "tp": 0,
+    "fp": 0,
+    "fn": 0,
+    "prediction_locations": [],
+    "prediction_evidence": [],
+    "status": "failed",
+    "json_valid": true,
+    "references_valid": false,
+    "duration_seconds": 32.3138,
+    "error_code": "invalid_llm_evidence",
+    "attempts": 1
+  },
+  {
+    "document_id": "negative-units",
+    "kind": "negative",
+    "prediction_count": 1,
+    "gold_count": 0,
+    "tp": 0,
+    "fp": 1,
+    "fn": 0,
+    "prediction_locations": [
+      [
+        "word/document.xml:/w:document/w:body/w:p[2]",
+        "word/document.xml:/w:document/w:body/w:p[4]"
+      ]
+    ],
+    "prediction_evidence": [
+      [
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+          "quote": "Общий бюджет проекта А составляет 1000000 рублей."
+        },
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+          "quote": "Общий бюджет проекта А составляет один миллион рублей."
+        }
+      ]
+    ],
+    "status": "completed",
+    "json_valid": true,
+    "references_valid": true,
+    "duration_seconds": 20.8648,
+    "error_code": null,
+    "attempts": 1
+  },
+  {
+    "document_id": "negative-subset",
+    "kind": "negative",
+    "prediction_count": 1,
+    "gold_count": 0,
+    "tp": 0,
+    "fp": 1,
+    "fn": 0,
+    "prediction_locations": [
+      [
+        "word/document.xml:/w:document/w:body/w:p[2]",
+        "word/document.xml:/w:document/w:body/w:p[4]"
+      ]
+    ],
+    "prediction_evidence": [
+      [
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+          "quote": "Для каждой закупки категории А обязательно согласование директора."
+        },
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+          "quote": "Для закупок категории А стоимостью свыше 100 тысяч рублей обязательно согласование директора."
+        }
+      ]
+    ],
+    "status": "completed",
+    "json_valid": true,
+    "references_valid": true,
+    "duration_seconds": 29.4053,
+    "error_code": null,
+    "attempts": 1
+  },
+  {
+    "document_id": "negative-unrelated",
+    "kind": "negative",
+    "prediction_count": 0,
+    "gold_count": 0,
+    "tp": 0,
+    "fp": 0,
+    "fn": 0,
+    "prediction_locations": [],
+    "prediction_evidence": [],
+    "status": "completed",
+    "json_valid": true,
+    "references_valid": true,
+    "duration_seconds": 2.7857,
+    "error_code": null,
+    "attempts": 1
+  },
+  {
+    "document_id": "ambiguous-days",
+    "kind": "ambiguous",
+    "prediction_count": 1,
+    "gold_count": 0,
+    "tp": 0,
+    "fp": 1,
+    "fn": 0,
+    "prediction_locations": [
+      [
+        "word/document.xml:/w:document/w:body/w:p[2]",
+        "word/document.xml:/w:document/w:body/w:p[4]"
+      ]
+    ],
+    "prediction_evidence": [
+      [
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+          "quote": "Срок оплаты по договору А составляет 10 дней."
+        },
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+          "quote": "Срок оплаты по договору А составляет 10 рабочих дней."
+        }
+      ]
+    ],
+    "status": "completed",
+    "json_valid": true,
+    "references_valid": true,
+    "duration_seconds": 21.3552,
+    "error_code": null,
+    "attempts": 1
+  },
+  {
+    "document_id": "ambiguous-approximate",
+    "kind": "ambiguous",
+    "prediction_count": 1,
+    "gold_count": 0,
+    "tp": 0,
+    "fp": 1,
+    "fn": 0,
+    "prediction_locations": [
+      [
+        "word/document.xml:/w:document/w:body/w:p[2]",
+        "word/document.xml:/w:document/w:body/w:p[4]"
+      ]
+    ],
+    "prediction_evidence": [
+      [
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+          "quote": "Плановый бюджет проекта А составляет около 5 миллионов рублей."
+        },
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+          "quote": "Уточнённая оценка бюджета проекта А составляет 5,2 миллиона рублей."
+        }
+      ]
+    ],
+    "status": "completed",
+    "json_valid": true,
+    "references_valid": true,
+    "duration_seconds": 24.2576,
+    "error_code": null,
+    "attempts": 1
+  },
+  {
+    "document_id": "ambiguous-scope",
+    "kind": "ambiguous",
+    "prediction_count": 1,
+    "gold_count": 0,
+    "tp": 0,
+    "fp": 1,
+    "fn": 0,
+    "prediction_locations": [
+      [
+        "word/document.xml:/w:document/w:body/w:p[2]",
+        "word/document.xml:/w:document/w:body/w:p[4]"
+      ]
+    ],
+    "prediction_evidence": [
+      [
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+          "quote": "Отчёты хранятся три года"
+        },
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+          "quote": "Архивные отчёты хранятся пять лет"
+        }
+      ]
+    ],
+    "status": "completed",
+    "json_valid": true,
+    "references_valid": true,
+    "duration_seconds": 21.1684,
+    "error_code": null,
+    "attempts": 1
+  },
+  {
+    "document_id": "ambiguous-draft",
+    "kind": "ambiguous",
+    "prediction_count": 1,
+    "gold_count": 0,
+    "tp": 0,
+    "fp": 1,
+    "fn": 0,
+    "prediction_locations": [
+      [
+        "word/document.xml:/w:document/w:body/w:p[2]",
+        "word/document.xml:/w:document/w:body/w:p[4]"
+      ]
+    ],
+    "prediction_evidence": [
+      [
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+          "quote": "В проекте регламента предлагается ежемесячная проверка системы А."
+        },
+        {
+          "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+          "quote": "В рабочей инструкции указана ежеквартальная проверка системы А."
+        }
+      ]
+    ],
+    "status": "completed",
+    "json_valid": true,
+    "references_valid": true,
+    "duration_seconds": 24.3855,
+    "error_code": null,
+    "attempts": 1
+  }
+]

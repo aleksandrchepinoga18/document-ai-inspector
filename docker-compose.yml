@@ -1,7 +1,7 @@
 name: document-ai-inspector
 
 x-app: &app
-  image: document-ai-inspector:stage4
+  image: document-ai-inspector:stage5
   build:
     context: .
     dockerfile: Dockerfile

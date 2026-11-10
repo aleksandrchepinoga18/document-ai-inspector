@@ -95,6 +95,14 @@ class Preview(Contract):
     message: str | None = None
 
 
+class LLMValidationProblem(Contract):
+    """Safe first-failure coordinates; never copy untrusted quotes or IDs here."""
+
+    issue_index: int = Field(ge=0)
+    reference_index: int | None = Field(default=None, ge=0)
+    reason: Literal["duplicate_id", "unknown_id", "same_section", "uninformative_quote", "quote_not_found"]
+
+
 class LLMAnalysis(Contract):
     status: Literal["not_requested", "completed", "failed", "skipped"] = "not_requested"
     provider: Literal["none", "ollama", "vllm", "yandex"] = "none"
@@ -105,6 +113,9 @@ class LLMAnalysis(Contract):
     duration_seconds: float = 0
     json_valid: bool | None = None
     references_valid: bool | None = None
+    response_issue_count: int | None = Field(default=None, ge=0)
+    discarded_issue_count: int | None = Field(default=None, ge=0)
+    validation_diagnostics: list[LLMValidationProblem] = Field(default_factory=list)
     error_code: str | None = None
     message: str | None = None
 

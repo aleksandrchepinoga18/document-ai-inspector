@@ -4,12 +4,12 @@
 [TECHNICAL_SPEC.md](TECHNICAL_SPEC.md), скопированная без изменений из
 `TECHNICAL_SPEC_REVISED.md`.
 
-Реализованы **этапы 1–4**: инфраструктура, безопасное чтение DOCX,
+Реализованы **этапы 1–5**: инфраструктура, безопасное чтение DOCX,
 формальные правила по JSON-профилю, точечные правки размера шрифта,
 OOXML-инварианты, скачивание, PDF через LibreOffice/PyMuPDF и опциональные
-LLM-провайдеры с проверкой цитат.
+LLM-провайдеры с проверкой цитат, синтетический бенчмарк и MLflow Tracking.
 Этап 1 принят пользователем: Compose работает, все 9 исходных тестов прошли.
-Бенчмарк и UI-клиент не реализованы.
+UI-клиент пока не реализован.
 Streamlit остаётся заглушкой этапа 1.
 
 ## Требования
@@ -778,3 +778,132 @@ Yandex без подтверждений возвращает 403 до LLM-фа�
 не выполнялось. Эти проверки выполняет пользователь по командам выше.
 Работа реальных моделей, права/квоты Yandex и GPU-инференс не подтверждены.
 Этапы 5–6 не начинались.
+
+## Этап 5: синтетический benchmark и MLflow
+
+Реализованы 24 синтетических DOCX-кейса с авторской разметкой: 12 с противоречием,
+8 без противоречия и 4 неоднозначных. CLI использует существующий LLM-worker
+этапа 4, проверку схемы и цитат; rules engine в оценку не входит.
+Правила сопоставления, знаменатели и состав артефактов описаны в
+[evaluation/README.md](evaluation/README.md).
+Следующий этап UI не начат.
+
+В Git Bash пересоберите образ с этапом 5 и запустите автономные тесты:
+
+```bash
+docker compose config --quiet
+docker compose up -d --build
+docker compose ps
+docker compose exec api python -m pytest -v
+docker compose exec api python -m pytest -v tests/unit/test_evaluation_metrics.py tests/unit/test_benchmark.py tests/integration/test_benchmark_mlflow.py
+```
+
+Ожидается успешный pytest без запросов к моделям. Новый integration test использует
+реальный MLflow client, временные SQLite и файловое хранилище, без Tracking Server.
+Проверка текущего сервера и его volume выполняется отдельно следующей командой:
+
+```bash
+curl --fail http://localhost:5000/health
+docker compose exec api python -m evaluation.benchmark --dry-run
+```
+
+Ожидается строка `MOCK (no real model)` и код 0. В `http://localhost:5000` появится
+эксперимент `semantic-benchmark-mock`: 24 кейса, TP=0, FP=0, FN=12, JSON-valid=1,
+references-valid=1. Это пустой mock baseline, его F1 не оценивает реальную LLM.
+Без Tracking Server можно выполнить:
+
+```bash
+docker compose exec api python -m evaluation.benchmark --dry-run --no-mlflow
+```
+
+Для реальной локальной Ollama сначала установите/запустите выбранную локальную
+модель и задайте её точное имя в `OLLAMA_MODEL` файла `.env`. Адрес для контейнера:
+`OLLAMA_BASE_URL=http://host.docker.internal:11434/v1`. Затем:
+
+```bash
+docker compose up -d --build
+docker compose exec api python -m evaluation.benchmark --provider ollama
+```
+
+Ожидается `REAL synthetic benchmark`, локальные JSON/CSV и новый run эксперимента
+`semantic-benchmark`. Числа TP/FP/FN зависят от фактических ответов модели.
+Один запуск обрабатывает все 24 кейса, по одному вызову на кейс при
+`LLM_MAX_RETRIES=0`; повторения и задержки ограничены настройками этапа 4.
+Для длинных ответов при необходимости увеличьте `LLM_MAX_TOKENS` одинаково для
+сравниваемых моделей, затем пересоздайте контейнер API.
+
+Yandex запускается только по вашему явному выбору; это **платные запросы**.
+Настройте `.env`: `YANDEX_BASE_URL`, `YANDEX_FOLDER_ID`, `YANDEX_MODEL`,
+`YANDEX_API_KEY` по разделу этапа 4. Не передавайте ключи аргументами CLI.
+
+```bash
+docker compose up -d --build
+docker compose exec api python -m evaluation.benchmark --provider yandex --allow-paid
+```
+
+Без `--allow-paid` CLI откажет до сетевого запроса. Ожидается отдельный реальный
+run того же эксперимента с теми же версиями набора, prompt и matching.
+Наличие ключей само по себе не запускает запросы. Для настроенного локального
+vLLM доступен `--provider vllm`; GPU-развёртывание не выполнялось.
+
+Путь результатов печатается CLI; он находится в существующем volume
+`documents_data` под `/app/results/benchmarks`. Для просмотра summary:
+
+```bash
+docker compose exec api python -c 'import json,pathlib; p=max(pathlib.Path("results/benchmarks").glob("*/summary.json"),key=lambda p:p.stat().st_mtime); print(p); print(json.dumps(json.loads(p.read_text(encoding="utf-8")),ensure_ascii=False,indent=2))'
+```
+
+В MLflow проверьте параметры model/provider, dataset/prompt hashes и версии,
+TP/FP/FN, precision/recall/F1, JSON/reference rates, latency mean/p95, ошибки
+и четыре JSON/CSV артефакта. Обычный API документов не зависит от MLflow.
+
+При коде 1 результаты сохранены: проверьте `cases.json` и `tracking.json` в
+напечатанном каталоге. При проблеме tracking:
+
+```bash
+docker compose ps
+curl --fail http://localhost:5000/health
+docker compose logs --tail=100 mlflow
+docker compose exec api python -c 'import urllib.request; print(urllib.request.urlopen("http://mlflow:5000/health",timeout=5).read().decode())'
+```
+
+При ошибках Ollama проверьте её доступность на хосте, точное имя модели и
+`OLLAMA_BASE_URL`; при Yandex — код ошибки авторизации/квоты в cases.json.
+Код 2 означает отказ CLI или ошибку конфигурации/подготовки.
+Не удаляйте volume для исправления соединения.
+
+### Фактическая проверка этапа 5 — 10.11.2026
+
+В локальной Windows-среде Python 3.12 выполнены новые тесты этапа 5:
+**16 passed**. Проверены one-to-one matching, FP отрицательных кейсов, FN при
+сбоях, отдельный учёт неоднозначных случаев, стабильность DOCX и цитат,
+защита CLI от неявных/платных вызовов, mock и сохранение локальных результатов
+при сбое tracking. Реальный MLflow client записал метрики и четыре артефакта
+во временные SQLite/локальное хранилище; повторное чтение и скачивание прошли.
+
+Отдельный CLI `--dry-run --no-mlflow` выполнен: 24 кейса, TP=0, FP=0, FN=12,
+JSON-valid/reference-valid=1, failed_case_count=0. Это проверка mock, а не моделей.
+`git diff --check` прошёл.
+
+Полный pytest, выполненный до добавления последнего теста benchmark, дал
+**165 passed, 1 failed, 3 deselected**. Сбой существующего теста
+`test_zip_paths_are_never_extracted[dir\\bad.xml]` связан с созданием ZIP на
+Windows: `zipfile` нормализует обратный слеш до проверки, поэтому ожидаемый
+`unsafe_zip_path` заменяется на `invalid_xml`. Этот тест и код безопасности
+не изменялись в этапе 5; успешность полного набора в Linux нужно подтвердить
+командой Docker выше.
+
+Docker Compose, Tracking Server по HTTP, постоянный Docker volume и реальные
+Ollama/Yandex/vLLM в этом этапе не запускались. Их ручная проверка остаётся
+за пользователем по приведённым командам; реальных метрик моделей пока нет.
+
+### Разбор сохранённого запуска Ollama этапа 5
+
+Пользователь предоставил run `real-7d083fee55ad4e90ae91595cfb0a91fc`.
+[Отчёт об ошибках и команды проверки](evaluation/reports/ollama-stage5-analysis.md)
+содержит анализ пяти отказов grounding, трёх смысловых FP и исправление matcher
+для цитат без конечной точки. Ground truth, baseline prompt и исходный run
+сохранены. Новые запуски используют версию matcher v2 и подробные счётчики
+ошибок валидации; [отдельное предложение prompt v2](evaluation/prompts/contradictions-v2-proposal.md)
+не активировано. Офлайн-пересчёт прежних ответов даёт 9/3/3 вместо 8/4/4;
+это исправление оценки, не результат нового запуска LLM. Этап 6 не начат.

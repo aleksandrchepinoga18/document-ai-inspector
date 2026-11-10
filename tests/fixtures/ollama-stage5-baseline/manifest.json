@@ -1,0 +1,464 @@
+{
+  "params": {
+    "mode": "real",
+    "provider": "ollama",
+    "model": "qwen2.5:7b-instruct",
+    "dataset_version": "synthetic-contradictions-v1",
+    "dataset_sha256": "6ed4e8d3f27b486b5b9d2a5f38398532f0beb441577ab155e4b25f254301e06d",
+    "generator_version": "synthetic-docx-v1",
+    "prompt_version": "cross-section-contradictions-v1",
+    "prompt_sha256": "05dc9d10e6f8f9b2e45043521f41a6f5937815773983d129dd7e48eac7fceb41",
+    "matching_version": "type-exact-locations-evidence-v1",
+    "ambiguous_policy": "exclude-from-quality-count-separately",
+    "latency_scope": "worker-wall-time",
+    "python_version": "3.12.12",
+    "version_python-docx": "1.2.0",
+    "version_lxml": "6.1.3",
+    "version_pydantic": "2.12.3",
+    "version_openai": "2.6.1",
+    "version_mlflow": "3.5.1",
+    "llm_timeout_seconds": 120.0,
+    "llm_total_timeout_seconds": 120.0,
+    "llm_max_retries": 0,
+    "llm_temperature": 0.0,
+    "llm_max_tokens": 1024,
+    "llm_max_input_chars": 20000,
+    "llm_max_fragments": 200,
+    "llm_max_response_chars": 50000,
+    "llm_json_mode": true
+  },
+  "cases": [
+    {
+      "document_id": "positive-payment",
+      "docx_sha256": "6fa6daa1bfe41aacd7999e1255a60f104f1fbc37318e456dbd546f5b319068cd",
+      "kind": "positive",
+      "paragraphs": [
+        "Срок оплаты по договору А составляет 10 календарных дней.",
+        "Срок оплаты по договору А составляет 30 календарных дней."
+      ],
+      "rationale": "Несовместимые утверждения об одном предмете при одинаковых условиях.",
+      "gold": [
+        {
+          "error_type": "contradiction",
+          "references": [
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+              "quote": "Срок оплаты по договору А составляет 10 календарных дней."
+            },
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+              "quote": "Срок оплаты по договору А составляет 30 календарных дней."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "document_id": "positive-budget",
+      "docx_sha256": "e21b595cf3e9d105103f98a1082c9c63dcac66508b818276980c21b7429e9142",
+      "kind": "positive",
+      "paragraphs": [
+        "Общий бюджет проекта А утверждён в размере 5 миллионов рублей.",
+        "Общий бюджет проекта А утверждён в размере 8 миллионов рублей."
+      ],
+      "rationale": "Несовместимые утверждения об одном предмете при одинаковых условиях.",
+      "gold": [
+        {
+          "error_type": "contradiction",
+          "references": [
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+              "quote": "Общий бюджет проекта А утверждён в размере 5 миллионов рублей."
+            },
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+              "quote": "Общий бюджет проекта А утверждён в размере 8 миллионов рублей."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "document_id": "positive-deadline",
+      "docx_sha256": "fda641f9f06c1d86034e73937cbb0acea6d09a410054fb1ced4bef62380866c7",
+      "kind": "positive",
+      "paragraphs": [
+        "Окончательная дата сдачи проекта А — 15 декабря 2026 года.",
+        "Окончательная дата сдачи проекта А — 25 декабря 2026 года."
+      ],
+      "rationale": "Несовместимые утверждения об одном предмете при одинаковых условиях.",
+      "gold": [
+        {
+          "error_type": "contradiction",
+          "references": [
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+              "quote": "Окончательная дата сдачи проекта А — 15 декабря 2026 года."
+            },
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+              "quote": "Окончательная дата сдачи проекта А — 25 декабря 2026 года."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "document_id": "positive-owner",
+      "docx_sha256": "af8f1980efcb1ab0dad06e13a09aa0afe442d956b6bd2f198e0b2e544f57e609",
+      "kind": "positive",
+      "paragraphs": [
+        "Единственным ответственным за согласование проекта А назначен отдел закупок.",
+        "Единственным ответственным за согласование проекта А назначен финансовый отдел."
+      ],
+      "rationale": "Несовместимые утверждения об одном предмете при одинаковых условиях.",
+      "gold": [
+        {
+          "error_type": "contradiction",
+          "references": [
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+              "quote": "Единственным ответственным за согласование проекта А назначен отдел закупок."
+            },
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+              "quote": "Единственным ответственным за согласование проекта А назначен финансовый отдел."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "document_id": "positive-retention",
+      "docx_sha256": "819af4432e4971148f2892ae032de1d14e21fe1e42eebbbb999f8696c056d07d",
+      "kind": "positive",
+      "paragraphs": [
+        "Срок хранения отчётов категории А составляет ровно три года.",
+        "Срок хранения отчётов категории А составляет ровно пять лет."
+      ],
+      "rationale": "Несовместимые утверждения об одном предмете при одинаковых условиях.",
+      "gold": [
+        {
+          "error_type": "contradiction",
+          "references": [
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+              "quote": "Срок хранения отчётов категории А составляет ровно три года."
+            },
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+              "quote": "Срок хранения отчётов категории А составляет ровно пять лет."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "document_id": "positive-access",
+      "docx_sha256": "751983b97e77d703ce0d4952d5f7c66fc41fbe5c200b2bce3ed6e7a2efd008eb",
+      "kind": "positive",
+      "paragraphs": [
+        "Подрядчикам запрещён доступ к системе А при любых условиях.",
+        "Подрядчикам разрешён доступ к системе А после согласования заявки."
+      ],
+      "rationale": "Несовместимые утверждения об одном предмете при одинаковых условиях.",
+      "gold": [
+        {
+          "error_type": "contradiction",
+          "references": [
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+              "quote": "Подрядчикам запрещён доступ к системе А при любых условиях."
+            },
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+              "quote": "Подрядчикам разрешён доступ к системе А после согласования заявки."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "document_id": "positive-frequency",
+      "docx_sha256": "34934266393ceff8976d82a03030b55dfb2d8d5e5f63362f0b167d6c9c89bb44",
+      "kind": "positive",
+      "paragraphs": [
+        "Плановая проверка системы А проводится ровно один раз в месяц.",
+        "Плановая проверка системы А проводится ровно один раз в квартал."
+      ],
+      "rationale": "Несовместимые утверждения об одном предмете при одинаковых условиях.",
+      "gold": [
+        {
+          "error_type": "contradiction",
+          "references": [
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+              "quote": "Плановая проверка системы А проводится ровно один раз в месяц."
+            },
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+              "quote": "Плановая проверка системы А проводится ровно один раз в квартал."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "document_id": "positive-warranty",
+      "docx_sha256": "1fcea02197d410ee7037b677438785fc5cea5349190d5c2ae5d8686c94d09940",
+      "kind": "positive",
+      "paragraphs": [
+        "Гарантийный срок для изделия А составляет 12 месяцев с даты поставки.",
+        "Гарантийный срок для изделия А составляет 24 месяца с даты поставки."
+      ],
+      "rationale": "Несовместимые утверждения об одном предмете при одинаковых условиях.",
+      "gold": [
+        {
+          "error_type": "contradiction",
+          "references": [
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+              "quote": "Гарантийный срок для изделия А составляет 12 месяцев с даты поставки."
+            },
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+              "quote": "Гарантийный срок для изделия А составляет 24 месяца с даты поставки."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "document_id": "positive-staff",
+      "docx_sha256": "6c1aa2e7f2ec73f0cb9feb2bc608e289422cf3f8e01284f9731edf125a014cf1",
+      "kind": "positive",
+      "paragraphs": [
+        "На дату запуска в команде проекта А ровно 8 сотрудников.",
+        "На дату запуска в команде проекта А ровно 12 сотрудников."
+      ],
+      "rationale": "Несовместимые утверждения об одном предмете при одинаковых условиях.",
+      "gold": [
+        {
+          "error_type": "contradiction",
+          "references": [
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+              "quote": "На дату запуска в команде проекта А ровно 8 сотрудников."
+            },
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+              "quote": "На дату запуска в команде проекта А ровно 12 сотрудников."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "document_id": "positive-currency",
+      "docx_sha256": "a53821354f265c6f070c3e2d99765b049e42ec1bd561add15ba5452f0f7793f0",
+      "kind": "positive",
+      "paragraphs": [
+        "Все расчёты по договору А производятся исключительно в рублях.",
+        "Все расчёты по договору А производятся исключительно в евро."
+      ],
+      "rationale": "Несовместимые утверждения об одном предмете при одинаковых условиях.",
+      "gold": [
+        {
+          "error_type": "contradiction",
+          "references": [
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+              "quote": "Все расчёты по договору А производятся исключительно в рублях."
+            },
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+              "quote": "Все расчёты по договору А производятся исключительно в евро."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "document_id": "positive-approval",
+      "docx_sha256": "ee3bdee293378bed0010bdb87ab2d877f822fda11e0fd03a9cbdade97ee499f0",
+      "kind": "positive",
+      "paragraphs": [
+        "Для каждой закупки категории А обязательно согласование директора.",
+        "Для закупок категории А стоимостью до 100 тысяч рублей согласование директора не требуется."
+      ],
+      "rationale": "Несовместимые утверждения об одном предмете при одинаковых условиях.",
+      "gold": [
+        {
+          "error_type": "contradiction",
+          "references": [
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+              "quote": "Для каждой закупки категории А обязательно согласование директора."
+            },
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+              "quote": "Для закупок категории А стоимостью до 100 тысяч рублей согласование директора не требуется."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "document_id": "positive-storage",
+      "docx_sha256": "ecbb54f83dfa30103116cbc6b5308fdd53521f42cb5886d7721a32a549315291",
+      "kind": "positive",
+      "paragraphs": [
+        "Единственное место хранения резервных копий системы А — площадка Север.",
+        "Единственное место хранения резервных копий системы А — площадка Юг."
+      ],
+      "rationale": "Несовместимые утверждения об одном предмете при одинаковых условиях.",
+      "gold": [
+        {
+          "error_type": "contradiction",
+          "references": [
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[2]",
+              "quote": "Единственное место хранения резервных копий системы А — площадка Север."
+            },
+            {
+              "element_id": "word/document.xml:/w:document/w:body/w:p[4]",
+              "quote": "Единственное место хранения резервных копий системы А — площадка Юг."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "document_id": "negative-same",
+      "docx_sha256": "6da78b42198f98ce3bac0f939c8d60685868f02431ed7bd94655ed5a53c0044a",
+      "kind": "negative",
+      "paragraphs": [
+        "Срок оплаты по договору А составляет 10 календарных дней.",
+        "Срок оплаты по договору А составляет 10 календарных дней."
+      ],
+      "rationale": "Совместимые утверждения: совпадение либо разные объекты, условия, периоды или эквивалентные единицы.",
+      "gold": []
+    },
+    {
+      "document_id": "negative-objects",
+      "docx_sha256": "ecfea847f4c42aa71b19d78579eacb1ea47c11e6c9b7719c1916ab7c800ca9c5",
+      "kind": "negative",
+      "paragraphs": [
+        "Срок оплаты по договору А составляет 10 календарных дней.",
+        "Срок оплаты по договору Б составляет 30 календарных дней."
+      ],
+      "rationale": "Совместимые утверждения: совпадение либо разные объекты, условия, периоды или эквивалентные единицы.",
+      "gold": []
+    },
+    {
+      "document_id": "negative-phases",
+      "docx_sha256": "c94788af4ee220fde1e49dae0c7257683ad13f3bfaf566ea45b408a39519842d",
+      "kind": "negative",
+      "paragraphs": [
+        "На пилотном этапе в команде проекта А ровно 8 сотрудников.",
+        "На промышленном этапе в команде проекта А ровно 12 сотрудников."
+      ],
+      "rationale": "Совместимые утверждения: совпадение либо разные объекты, условия, периоды или эквивалентные единицы.",
+      "gold": []
+    },
+    {
+      "document_id": "negative-conditions",
+      "docx_sha256": "92c93610607183a5534be29cef9d43f4518a8f1d92fc992f0d07c5e7eac0792e",
+      "kind": "negative",
+      "paragraphs": [
+        "Для стандартной поставки срок оплаты составляет 10 календарных дней.",
+        "Для срочной поставки срок оплаты составляет 30 календарных дней."
+      ],
+      "rationale": "Совместимые утверждения: совпадение либо разные объекты, условия, периоды или эквивалентные единицы.",
+      "gold": []
+    },
+    {
+      "document_id": "negative-history",
+      "docx_sha256": "2d10dc2fbc2f9a639c7a8cb84679c2b2ad6270855b1dc952eb0f07c25ac38af4",
+      "kind": "negative",
+      "paragraphs": [
+        "До 1 января 2026 года срок хранения отчётов составлял три года.",
+        "С 1 января 2026 года срок хранения отчётов составляет пять лет."
+      ],
+      "rationale": "Совместимые утверждения: совпадение либо разные объекты, условия, периоды или эквивалентные единицы.",
+      "gold": []
+    },
+    {
+      "document_id": "negative-units",
+      "docx_sha256": "a73b99304f3731126feee21392c792d8c5a2d9b37de8b760385d8a9f47064a94",
+      "kind": "negative",
+      "paragraphs": [
+        "Общий бюджет проекта А составляет 1000000 рублей.",
+        "Общий бюджет проекта А составляет один миллион рублей."
+      ],
+      "rationale": "Совместимые утверждения: совпадение либо разные объекты, условия, периоды или эквивалентные единицы.",
+      "gold": []
+    },
+    {
+      "document_id": "negative-subset",
+      "docx_sha256": "e482f8f4e8651d7785119bd6f205e98eb1b38289dac02bdc947e172299de37fa",
+      "kind": "negative",
+      "paragraphs": [
+        "Для каждой закупки категории А обязательно согласование директора.",
+        "Для закупок категории А стоимостью свыше 100 тысяч рублей обязательно согласование директора."
+      ],
+      "rationale": "Совместимые утверждения: совпадение либо разные объекты, условия, периоды или эквивалентные единицы.",
+      "gold": []
+    },
+    {
+      "document_id": "negative-unrelated",
+      "docx_sha256": "03c60bd84acb34634d1c0bb56a2c2729af57edb55752430f793473c94cb7c4dd",
+      "kind": "negative",
+      "paragraphs": [
+        "Плановая проверка системы А проводится один раз в месяц.",
+        "Гарантийный срок для изделия Б составляет 24 месяца с даты поставки."
+      ],
+      "rationale": "Совместимые утверждения: совпадение либо разные объекты, условия, периоды или эквивалентные единицы.",
+      "gold": []
+    },
+    {
+      "document_id": "ambiguous-days",
+      "docx_sha256": "e3a4be95ce665fbe37d9f94aff3ebb47d3f16423a7c1a44eda02bfdf70cbe101",
+      "kind": "ambiguous",
+      "paragraphs": [
+        "Срок оплаты по договору А составляет 10 дней.",
+        "Срок оплаты по договору А составляет 10 рабочих дней."
+      ],
+      "rationale": "Недостаточно контекста для уверенного решения; исключён из TP/FP/FN, выводы учитываются отдельно.",
+      "gold": []
+    },
+    {
+      "document_id": "ambiguous-approximate",
+      "docx_sha256": "73006dffbcfc38adc09437c3d5db21a67a86ab0a43c7daa6d2c53c79920a863a",
+      "kind": "ambiguous",
+      "paragraphs": [
+        "Плановый бюджет проекта А составляет около 5 миллионов рублей.",
+        "Уточнённая оценка бюджета проекта А составляет 5,2 миллиона рублей."
+      ],
+      "rationale": "Недостаточно контекста для уверенного решения; исключён из TP/FP/FN, выводы учитываются отдельно.",
+      "gold": []
+    },
+    {
+      "document_id": "ambiguous-scope",
+      "docx_sha256": "176a0c9a3c3e19f4842ccc5f18d0d9aaa2097c950fc5b8a3477f25ff69389844",
+      "kind": "ambiguous",
+      "paragraphs": [
+        "Отчёты хранятся три года.",
+        "Архивные отчёты хранятся пять лет."
+      ],
+      "rationale": "Недостаточно контекста для уверенного решения; исключён из TP/FP/FN, выводы учитываются отдельно.",
+      "gold": []
+    },
+    {
+      "document_id": "ambiguous-draft",
+      "docx_sha256": "e12cd9c3cc41dbfbc84057cc421e543d7d0565198e009d5abec53581e66308ad",
+      "kind": "ambiguous",
+      "paragraphs": [
+        "В проекте регламента предлагается ежемесячная проверка системы А.",
+        "В рабочей инструкции указана ежеквартальная проверка системы А."
+      ],
+      "rationale": "Недостаточно контекста для уверенного решения; исключён из TP/FP/FN, выводы учитываются отдельно.",
+      "gold": []
+    }
+  ]
+}
